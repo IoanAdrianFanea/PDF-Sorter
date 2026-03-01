@@ -1,16 +1,32 @@
 # Roadmap
 
-## MVP
-- Upload PDFs
-- Extract text
-- Store locally
-- Search by keyword
+## Phase 1 – Core MVP
 
-## Phase 2
-- Auto-sort documents
-- Detect document type
-- Add background processing
+- Upload single or multiple PDFs
+- Upload a folder of PDFs (bulk upload)
+- Extract text from PDFs
+- Store metadata + extracted text in SQLite
+- Search documents by keyword
+- Preview or download individual PDFs
+- Export selected or filtered documents as ZIP (with folders inside)
 
-## Phase 3
-- Semantic search
-- Metadata extraction (dates, suppliers, materials)
+Definition of done:
+- User can upload 20+ PDFs reliably
+- Search returns correct results with snippet
+- ZIP export downloads correctly with folder structure
+
+
+## Phase 2 – Smarter Organization
+
+- Basic auto-categorization rules
+- Tagging support
+- Filter by category or date
+- Export by category
+
+
+## Phase 3 – Improvements
+
+- Better search relevance
+- Performance optimizations
+- UI improvements
+- Optional OCR support

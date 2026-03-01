@@ -1,162 +1,95 @@
-# Project Plan — PDF Sorter for Construction Site Manager
+# Project Plan – PDF Sorter
 
-## 1) Goal
-Build a **local-first** document intake + search tool for a construction site manager who receives many PDFs (drawings, RFIs, concrete tickets, delivery notes, invoices, etc.). The app should **organize PDFs automatically** and make it **fast to find specific details** (e.g., “C30/37 concrete”, supplier, date, pour location).
+## Goal
 
-Success looks like:
-- Drag/drop PDFs → they get stored, named, and filed automatically
-- Search returns results in seconds with filters (project, type, date, supplier)
-- No sensitive PDFs are accidentally uploaded or committed to Git
+Build a web-based PDF sorting and search tool.
 
----
+The app allows users to:
+- Upload PDFs (single or folder)
+- Search documents
+- Organize them virtually
+- Export sorted results as a ZIP file
 
-## 2) Target User
-- Primary: Construction site manager 
-- Secondary: Any project/site manager dealing with large volumes of PDF attachments
+The system is local-first. Files are stored locally on the server.
 
-User constraints:
-- Minimal time to learn
-- Needs quick search + clear folder structure
-- Documents can be sensitive (client/supplier info)
 
----
+## Tech Stack
 
-## 3) Core Problems
-1. **Document overload**: PDFs arrive via email constantly.
-2. **Manual filing**: Dragging PDFs into folders + renaming is slow and inconsistent.
-3. **Hard to search**: PDFs aren’t indexed; finding a detail takes ages.
-4. **Inconsistent formats**: Some PDFs are text-based; some are scanned images.
+Frontend:
+- React + Vite + TypeScript
 
----
+Backend:
+- NestJS + TypeScript
 
-## 4) MVP Scope (Phase 1)
-### Must-have features
-- Local web app (runs on the user’s machine)
-- Upload PDFs via drag & drop (and/or “watch folder” later)
-- Store PDFs in a local `data/` directory (not in repo)
-- Extract text from PDFs (text-based PDFs first)
-- Keyword search across extracted text
-- Basic document list page (name, date added, type guess)
-- Basic auto-sorting into folders based on simple rules (filename/content keywords)
+Database:
+- SQLite
 
-### Out of scope for MVP (Phase 1)
-- Email integration (Gmail/Outlook)
-- OCR for scanned PDFs
-- Semantic search / embeddings
-- Multi-user accounts / cloud sync
+PDF Extraction:
+- pdf-parse
 
----
 
-## 5) Tech Stack Decision 
-### Frontend
-- **React + Vite + TypeScript**
-Reason: widely used in industry, fast dev loop, strong portfolio value.
+## MVP Scope (Phase 1)
 
-### Backend
-- **Node.js + NestJS + TypeScript**
-Reason: shows enterprise patterns (modules, DI, DTO validation), clean API structure, common in SWE roles.
+### 1. Upload
 
-### Database
-- **SQLite for MVP**
-Reason: zero setup, local-first. Upgrade path to Postgres if needed.
+User action:
+- Upload single PDFs
+- Upload multiple PDFs
+- Upload a folder of PDFs
 
-### Search
-- **Phase 1:** SQLite FTS (or a simple DB text search if needed)
-- **Phase 2:** Postgres FTS or a dedicated search index
-Reason: start simple and fast, scale later.
+System behavior:
+- Store each PDF locally
+- Extract text
+- Save metadata + extracted text in database
 
-### Background processing (later)
-- **Phase 2:** BullMQ + Redis (job queue)
-Reason: heavy tasks (PDF extraction/OCR) should not block API requests.
+Definition of done:
+- 20+ PDFs upload reliably
+- Failed files are reported clearly
 
-### PDF processing
-- **Phase 1:** `pdf-parse` for text extraction from text PDFs
-- **Phase 2:** OCR fallback (Tesseract) for scanned PDFs via worker
-Reason: implement reliable basics first, then handle tougher cases.
 
-### AI usage
-- Default: **AI off**
-- Later: optional AI-based classification / entity extraction (opt-in)
-Reason: sensitive data; safest default is local-only processing.
+### 2. Search
 
----
+User action:
+- Enter keyword search
 
-## 6) Architecture Overview
-High-level flow:
-1. User uploads PDF in the UI
-2. Backend saves file to local disk (`data/inbox/` then `data/processed/`)
-3. Backend extracts text + basic metadata
-4. Backend writes metadata + extracted text to DB
-5. Search queries the DB/index and returns results to UI
+System behavior:
+- Query SQLite full-text index
+- Return matching documents with snippet
 
-Components:
-- **Client (React/TS):** upload UI, list/search UI, document preview
-- **Server (NestJS/TS):** API endpoints, storage manager, extraction service
-- **Storage (local disk):** PDF files + derived artifacts
-- **Database (SQLite):** metadata + extracted text + indexing tables
+Definition of done:
+- Results are fast
+- Clicking result opens preview or allows download
 
----
 
-## 7) Security & Privacy Principles (Non-negotiables)
-- **Never commit PDFs**: `data/` folder and `*.pdf` are in `.gitignore`
-- **No raw PDFs sent externally**: local processing by default
-- **External AI is opt-in**: requires explicit config + UI toggle
-- **Minimal data sharing** (if AI enabled later):
-  - only send extracted text snippets necessary for the task
-  - redact obvious sensitive info when possible
-- **No document contents in logs**
-- **Secrets in `.env`, template in `.env.example`**
-- Local data stored under `data/` for easy backup/delete
+### 3. Export ZIP
 
----
+User action:
+- Export all documents
+- Export selected documents
+- Export current filtered results
 
-## 8) Repository Structure
-Planned structure:
+System behavior:
+- Create ZIP file
+- Inside ZIP, documents are grouped into folders
+- ZIP is downloaded
+- Temporary ZIP is removed after download
 
-- `client/` — React frontend
-- `server/` — NestJS backend
-- `data/` — local PDFs + indexes (ignored by Git)
-- `docs/` — documentation, decisions, diagrams
-- `.env.example` — env template
-- `.gitignore` — excludes PDFs/secrets/build artifacts
-- `README.md` — setup + features + screenshots
-- `docker-compose.yml` — optional later for Postgres/Redis
-- `LICENSE` — MIT
+Definition of done:
+- ZIP structure matches expected folder grouping
+- Download works reliably
 
----
 
-## 9) API Sketch (Initial)
-- `POST /documents` — upload PDF
-- `GET /documents` — list documents (filters: type, date, project)
-- `GET /documents/:id` — get metadata + file path reference
-- `GET /search?q=...` — keyword search (later add filters)
+## Non-Goals (MVP)
 
----
+- No microservices
+- No distributed architecture
+- No complex background job system
 
-## 10) Milestones / Roadmap
-### Phase 1 — MVP (Vertical slice)
-- [ ] NestJS API running locally
-- [ ] Upload endpoint saves to `data/inbox/`
-- [ ] Extract text with `pdf-parse`
-- [ ] Store in SQLite
-- [ ] Search endpoint returns matching docs
-- [ ] React UI: upload + search + results list
 
-### Phase 2 — Automation
-- [ ] Auto-classify document type (rules first)
-- [ ] Auto-file into folder structure (project/type/year)
-- [ ] Add background jobs (BullMQ + Redis)
-- [ ] Add OCR fallback for scanned PDFs
+## Definition of Done (Project)
 
-### Phase 3 — “AI that helps”
-- [ ] Entity extraction (e.g., concrete grade, supplier, date)
-- [ ] Semantic search (embeddings) — optional and privacy-controlled
-- [ ] Highlight matches in PDF viewer
-
----
-
-## 11) Definition of Done (for MVP)
-- Can upload 20+ PDFs without crashing
-- Search works reliably and returns correct results
-- Files are stored locally and never committed
-- App is usable by a non-technical user with minimal instructions
+- Upload works
+- Search works
+- Export works
+- Code follows clean Nest + React structure
+- Documentation is simple and clear

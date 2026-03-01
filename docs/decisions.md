@@ -1,28 +1,40 @@
-# Key Technical Decisions
+# Technical Decisions
 
-## Stack Choice
-Frontend: React + TypeScript  
-Backend: NestJS + TypeScript  
+## Web-Based Application
 
-Reason: This stack is widely used in industry and showcases skills employers look for.
+Decision:
+Use a web application instead of desktop app.
 
----
+Why:
+Easier to deploy and test.
+Still allows local-first storage.
+
+
+## SQLite for MVP
+
+Decision:
+Use SQLite database.
+
+Why:
+Simple setup.
+Good enough for local indexing.
+
+
+## ZIP Export Instead of Direct File System Sorting
+
+Decision:
+Export sorted documents as ZIP file.
+
+Why:
+Web apps cannot safely modify local file system.
+ZIP provides folder structure in downloadable format.
+
 
 ## Local Storage
-All PDFs are stored locally in the `data/` folder.
 
-Reason: Documents may be sensitive, so nothing is uploaded externally by default.
+Decision:
+Store PDFs locally on server.
 
----
-
-## Database
-SQLite for MVP.
-
-Reason: No setup required and perfect for a single-user local app.
-
----
-
-## Search Approach
-Start with keyword search, add semantic search later.
-
-Reason: Keyword search is simple, fast, and reliable for MVP.
+Why:
+Avoid sending documents externally.
+Maintain privacy.
