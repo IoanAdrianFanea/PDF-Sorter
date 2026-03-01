@@ -14,3 +14,7 @@ dist/
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+
+
+#learning notes
+learning.txt
