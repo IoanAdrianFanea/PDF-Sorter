@@ -2,7 +2,7 @@
 .env
 
 # Sensitive local data
-data/
+server/data/
 *.pdf
 *.PDF
 
