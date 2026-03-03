@@ -1,0 +1,184 @@
+import type { Document } from '../../types';
+
+interface DocumentTableProps {
+  documents: Document[];
+  selectedDocumentId: string | null;
+  selectedIds: Set<string>;
+  onSelectDocument: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onSelectAll: (checked: boolean) => void;
+}
+
+export function DocumentTable({
+  documents,
+  selectedDocumentId,
+  selectedIds,
+  onSelectDocument,
+  onToggleSelect,
+  onSelectAll,
+}: DocumentTableProps) {
+  const allSelected = documents.length > 0 && documents.every((doc) => selectedIds.has(doc.id));
+  const someSelected = documents.some((doc) => selectedIds.has(doc.id)) && !allSelected;
+  const getStatusBadge = (status: Document['status']) => {
+    const variants = {
+      PROCESSED: {
+        bg: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        dot: 'bg-green-500',
+        text: 'Success',
+      },
+      PROCESSING: {
+        bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        dot: 'bg-blue-500 animate-pulse',
+        text: 'Processing',
+      },
+      FAILED: {
+        bg: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+        dot: 'bg-red-500',
+        text: 'Failed',
+      },
+      QUEUED: {
+        bg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+        dot: 'bg-amber-500',
+        text: 'Review',
+      },
+      UPLOADED: {
+        bg: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
+        dot: 'bg-slate-500',
+        text: 'Uploaded',
+      },
+    };
+
+    const variant = variants[status];
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${variant.bg}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${variant.dot}`}></span>
+        {variant.text}
+      </span>
+    );
+  };
+
+  const getTagColor = (tag: string) => {
+    const colors: Record<string, string> = {
+      Safety: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+      Audit: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+      Invoices: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+      Blueprints: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      Electrical: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      Permits: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    };
+    return colors[tag] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-slate-50/80 dark:bg-slate-800/50 sticky top-0 z-10 backdrop-blur-sm">
+          <tr>
+            <th className="py-3 px-6 w-12 border-b border-slate-100 dark:border-slate-800">
+              <input
+                className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white"
+                type="checkbox"
+                checked={allSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelected;
+                }}
+                onChange={(e) => onSelectAll(e.target.checked)}
+              />
+            </th>
+            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Filename
+            </th>
+            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Status
+            </th>
+            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Tags
+            </th>
+            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Upload Date
+            </th>
+            <th className="py-3 px-6 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {documents.map((doc) => {
+            const isSelected = selectedIds.has(doc.id);
+            const isDrawerOpen = selectedDocumentId === doc.id;
+
+            return (
+              <tr
+                key={doc.id}
+                className={`group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
+                  isDrawerOpen
+                    ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-primary'
+                    : isSelected
+                    ? 'bg-blue-50/30 dark:bg-blue-900/5 border-l-2 border-l-blue-400'
+                    : 'border-l-2 border-l-transparent'
+                }`}
+              >
+                <td className="py-3 px-6" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    checked={isSelected}
+                    className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white cursor-pointer"
+                    type="checkbox"
+                    onChange={() => onToggleSelect(doc.id)}
+                  />
+                </td>
+                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0 p-2 bg-red-100 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
+                      <span className="material-symbols-outlined text-[20px] block">picture_as_pdf</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">{doc.fileName}</p>
+                      <p className="text-xs text-slate-500">{doc.fileSize}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                  {getStatusBadge(doc.status)}
+                </td>
+                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                  <div className="flex flex-wrap gap-1">
+                    {doc.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTagColor(tag)}`}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="py-3 px-2 text-sm text-slate-500 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                  {doc.uploadDate}
+                </td>
+                <td className="py-3 px-6 text-right">
+                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectDocument(doc.id);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                    </button>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">download</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
