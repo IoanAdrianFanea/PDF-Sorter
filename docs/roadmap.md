@@ -1,32 +1,29 @@
 # Roadmap
 
-## Phase 1 – Core MVP
+This document outlines the development stages of the project.
+Each phase builds toward a production-ready, deployable system while keeping scope controlled.
 
-- Upload single or multiple PDFs
-- Upload a folder of PDFs (bulk upload)
-- Extract text from PDFs
-- Store metadata + extracted text in SQLite
-- Search documents by keyword
-- Preview or download individual PDFs
-- Export selected or filtered documents as ZIP (with folders inside)
+---
 
-Definition of done:
-- User can upload 20+ PDFs reliably
-- Search returns correct results with snippet
-- ZIP export downloads correctly with folder structure
+Phase 1 – Secure MVP
+- Auth
+- Upload
+- Search
+- Tags
+- Export
 
+Phase 2 – Production Layer
+- Logging
+- Validation
+- Swagger
+- Tests
 
-## Phase 2 – Smarter Organization
+Phase 3 – Async Architecture
+- Queue
+- Worker
+- Job status
 
-- Basic auto-categorization rules
-- Tagging support
-- Filter by category or date
-- Export by category
-
-
-## Phase 3 – Improvements
-
-- Better search relevance
-- Performance optimizations
-- UI improvements
-- Optional OCR support
+Phase 4 – Deployment
+- S3
+- HTTPS
+- Cloud logging

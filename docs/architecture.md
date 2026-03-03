@@ -1,45 +1,35 @@
 # Architecture Overview
 
+This document describes the high-level system structure and design principles.
+The goal is to keep the architecture modular, secure, and production-ready without unnecessary complexity.
+
+---
+
 ## High-Level Structure
 
-User (Browser)
-    ↓
+User
+  ↓
 React Frontend
-    ↓
-NestJS Backend
-    ↓
-Local Storage (PDF files)
-    ↓
-SQLite Database (metadata + text)
+  ↓
+NestJS API
+  ↓
+SQLite (metadata + FTS)
+  ↓
+Blob Storage (Local or S3)
+
+Phase 3 adds:
+
+API
+  ↓
+Queue
+  ↓
+Worker
 
 
-## Main Components
+## Principles
 
-Frontend
-- Upload interface
-- Search interface
-- Results list
-- Export button
-
-Backend
-- Documents module
-- Extraction service
-- Storage service
-- Search service
-- Export service
-
-Storage
-- data/inbox
-- data/processed
-
-Database
-- Documents table
-- Full-text search index
-
-
-## Design Principles
-
-- Clean monolith
-- Clear separation of responsibilities
-- No overengineering
-- Local-first storage
+- Modular monolith
+- Clear layering (controller → service → repository)
+- Explicit document status model
+- User-scoped data access
+- Storage behind abstraction

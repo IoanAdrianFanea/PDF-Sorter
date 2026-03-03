@@ -1,95 +1,62 @@
-# Project Plan – PDF Sorter
+# Project Plan – PDF Sorter / Indexer
+
+This document outlines the scope and phases of the project.
+It focuses on delivering a secure, production-aware PDF indexing and organization tool without overengineering.
+
+---
 
 ## Goal
 
-Build a web-based PDF sorting and search tool.
+Build a multi-user web app for uploading, indexing, organizing, and exporting PDFs.
 
-The app allows users to:
-- Upload PDFs (single or folder)
-- Search documents
-- Organize them virtually
-- Export sorted results as a ZIP file
-
-The system is local-first. Files are stored locally on the server.
-
-
-## Tech Stack
-
-Frontend:
-- React + Vite + TypeScript
-
-Backend:
-- NestJS + TypeScript
-
-Database:
-- SQLite
-
-PDF Extraction:
-- pdf-parse
+The system emphasizes:
+- Secure multi-user boundaries
+- Full-text search
+- Tag-based organization
+- Async processing (later phase)
+- Clean architecture
+- Reproducible setup
 
 
-## MVP Scope (Phase 1)
+## Core Features
 
-### 1. Upload
-
-User action:
-- Upload single PDFs
-- Upload multiple PDFs
-- Upload a folder of PDFs
-
-System behavior:
-- Store each PDF locally
-- Extract text
-- Save metadata + extracted text in database
-
-Definition of done:
-- 20+ PDFs upload reliably
-- Failed files are reported clearly
+- Authentication (per-user isolation)
+- Upload single/multiple PDFs
+- Extract and index text (SQLite FTS)
+- Document status tracking
+- Tagging + filtering
+- Download PDF
+- Export selected/filtered documents as ZIP
 
 
-### 2. Search
+## Phases
 
-User action:
-- Enter keyword search
+Phase 1 – Secure MVP
+- Auth
+- Upload + extraction
+- Search + snippets
+- Tags
+- Export ZIP
 
-System behavior:
-- Query SQLite full-text index
-- Return matching documents with snippet
+Phase 2 – Production Layer
+- Structured logging
+- Validation
+- Swagger docs
+- Authorization tests
 
-Definition of done:
-- Results are fast
-- Clicking result opens preview or allows download
+Phase 3 – Async Processing
+- API + Worker split
+- Queue
+- Job status endpoints
 
-
-### 3. Export ZIP
-
-User action:
-- Export all documents
-- Export selected documents
-- Export current filtered results
-
-System behavior:
-- Create ZIP file
-- Inside ZIP, documents are grouped into folders
-- ZIP is downloaded
-- Temporary ZIP is removed after download
-
-Definition of done:
-- ZIP structure matches expected folder grouping
-- Download works reliably
+Phase 4 – Deployment
+- S3 storage
+- HTTPS
+- Production logging
 
 
-## Non-Goals (MVP)
+## Non-Goals
 
-- No microservices
-- No distributed architecture
-- No complex background job system
-
-
-## Definition of Done (Project)
-
-- Upload works
-- Search works
-- Export works
-- Code follows clean Nest + React structure
-- Documentation is simple and clear
+- Microservices
+- Distributed tracing
+- Overengineered infrastructure

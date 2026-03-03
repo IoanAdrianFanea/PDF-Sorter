@@ -1,40 +1,36 @@
 # Technical Decisions
 
-## Web-Based Application
+This document explains the key architectural and technical decisions made during development.
+Each decision prioritizes simplicity, correctness, and production realism.
 
-Decision:
-Use a web application instead of desktop app.
+---
 
-Why:
-Easier to deploy and test.
-Still allows local-first storage.
+Web Application
+- Easier to deploy and demo
+- API-first backend design
 
+Multi-User from Early Stage
+- Enforces real authorization boundaries
+- Prevents "student project" smell
 
-## SQLite for MVP
+SQLite + FTS for MVP
+- Simple setup
+- Good performance for indexing
+- Easy to migrate later if needed
 
-Decision:
-Use SQLite database.
+ZIP Export
+- Safe way to provide organized output
+- Avoids modifying user file system
 
-Why:
-Simple setup.
-Good enough for local indexing.
+Async Processing (Later Phase)
+- Improves responsiveness
+- Reflects real backend architecture
 
+Storage Abstraction
+- Local storage for development
+- S3-ready for deployment
 
-## ZIP Export Instead of Direct File System Sorting
-
-Decision:
-Export sorted documents as ZIP file.
-
-Why:
-Web apps cannot safely modify local file system.
-ZIP provides folder structure in downloadable format.
-
-
-## Local Storage
-
-Decision:
-Store PDFs locally on server.
-
-Why:
-Avoid sending documents externally.
-Maintain privacy.
+Structured Logging
+- Request IDs
+- Clear error formatting
+- Production debugging readiness

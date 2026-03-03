@@ -1,73 +1,85 @@
 # API Design
 
-## POST /documents
+This document lists the main endpoints at a high level.
+Swagger/OpenAPI is the source of truth for full request/response schemas.
 
-Description:
-Upload one or multiple PDFs.
+All endpoints are authenticated unless noted.
+All document/tag/export operations are scoped to the authenticated user.
 
-Request:
-multipart/form-data
+---
 
-Response:
-{
-  "uploaded": 10,
-  "failed": 1
-}
+## Auth
 
+POST /auth/login
+- Log in
 
-## GET /documents
+POST /auth/logout
+- Log out
 
-Description:
-List all documents.
+GET /me
+- Get current user
 
-Response:
-[
-  {
-    "id": "123",
-    "filename": "invoice.pdf",
-    "createdAt": "2026-03-01"
-  }
-]
+(Optional) POST /auth/register
+- Create account
 
+---
 
-## GET /search?q=keyword
+## Documents
 
-Description:
-Search documents by keyword.
+POST /documents
+- Upload one or multiple PDFs
 
-Response:
-[
-  {
-    "id": "123",
-    "filename": "invoice.pdf",
-    "snippet": "Payment due..."
-  }
-]
+GET /documents
+- List documents (supports filters like status/tag/date)
 
+GET /documents/:id
+- Document metadata + status + tags
 
-## GET /documents/:id/download
+GET /documents/:id/download
+- Download original PDF
 
-Description:
-Download original PDF.
+---
 
+## Search
 
-## POST /exports
+GET /search?q=...
+- Full-text search with snippets
 
-Description:
-Export selected or filtered documents as ZIP.
+---
 
-Request:
-{
-  "documentIds": ["123", "456"]
-}
+## Tags
 
-Response:
-{
-  "exportId": "abc123"
-}
+GET /tags
+- List tags
 
+POST /tags
+- Create tag
 
-## GET /exports/:id/download
+DELETE /tags/:id
+- Delete tag
 
-Description:
-Download generated ZIP file.
+POST /documents/:id/tags
+- Attach tags to a document
+
+DELETE /documents/:id/tags/:tagId
+- Remove tag from a document
+
+---
+
+## Exports
+
+POST /exports
+- Export selected/filtered docs as ZIP
+
+GET /exports/:id
+- Export status
+
+GET /exports/:id/download
+- Download ZIP when ready
+
+---
+
+## Jobs (Phase 3)
+
+GET /jobs/:id
+- Job status (queued/processing/done/failed)
