@@ -1,14 +1,28 @@
+
 # Secrets
 .env
+
 
 # Sensitive local data
 server/data/
 *.pdf
 *.PDF
 
+# Prisma SQLite database
+server/dev.db
+server/*.db
+server/*.db-wal
+server/*.db-shm
+server/*.db-journal
+server/.env
+server/node_modules/
+server/dist/
+
+
 # Node
 node_modules/
 dist/
+
 
 # VS Code
 .vscode/*
@@ -16,6 +30,5 @@ dist/
 !.vscode/extensions.json
 
 
-#learning notes
+# Misc
 learning.txt
-.github
