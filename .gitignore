@@ -1,7 +1,7 @@
 
 # Secrets
 .env
-
+*.db
 
 # Sensitive local data
 server/data/
