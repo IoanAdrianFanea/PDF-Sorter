@@ -57,3 +57,37 @@ Structured Logging
 - Request IDs
 - Clear error formatting
 - Production debugging readiness
+
+---
+
+## File Upload Implementation
+
+Multipart Form Data
+- Standard for file uploads
+- Multer middleware (@nestjs/platform-express)
+- FileInterceptor handles parsing
+- File available as Buffer in memory
+
+pdf-parse Library Version
+- Using v1.1.1 (not latest v2.x)
+- v1.x has simple functional API: pdfParse(buffer)
+- v2.x changed to class-based API causing compatibility issues
+- Dynamic require() due to CommonJS module format
+
+Synchronous Processing (Phase 1)
+- Upload → Extract → Store happens in single request
+- Simple implementation for MVP
+- Status transitions tracked in database
+- Errors caught and stored in document record
+
+Storage Abstraction Early
+- BlobStore interface from day 1
+- LocalBlobStore for development
+- Easy to swap to S3BlobStore later
+- Business logic doesn't depend on storage details
+
+Text Normalization
+- Collapse all whitespace to single spaces
+- Remove leading/trailing whitespace
+- Makes search more reliable
+- Prevents formatting artifacts from affecting results

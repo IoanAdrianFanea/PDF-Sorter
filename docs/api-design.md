@@ -42,17 +42,34 @@ GET /auth/me
 
 ## Documents
 
-POST /documents
-- Upload one or multiple PDFs
+POST /documents/upload
+- Upload a single PDF file
+- Content-Type: multipart/form-data
+- Field name: 'file'
+- Max size: 25MB
+- Requires JWT authentication
+- Request: FormData with PDF file
+- Response: { id: string, status: DocumentStatus }
+- Synchronous processing (Phase 1)
 
 GET /documents
-- List documents (supports filters like status/tag/date)
+- List all documents for authenticated user
+- Requires JWT authentication
+- Response: Document[] (ordered by uploadedAt desc)
+- Fields: id, originalFilename, mimeType, sizeBytes, uploadedAt, status, errorMessage, extractedAt
 
 GET /documents/:id
-- Document metadata + status + tags
+- Get single document metadata
+- Requires JWT authentication
+- Validates document ownership (IDOR protection)
+- Response: Document object with extractedAt timestamp
+- Does NOT include extractedText (too large)
 
 GET /documents/:id/download
-- Download original PDF
+- Download original PDF (not yet implemented)
+
+DELETE /documents/:id
+- Delete document (not yet implemented)
 
 ---
 

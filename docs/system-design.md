@@ -58,14 +58,37 @@ Notes:
 
 ---
 
-## Upload Flow (Phase 1)
+## Upload Flow (Phase 1 - Implemented)
 
-1. User uploads PDF(s).
-2. API validates file type/size.
-3. API stores file (LocalBlobStore).
-4. API extracts text (pdf-parse).
-5. API stores metadata + extracted text in SQLite.
-6. API marks document PROCESSED or FAILED.
+### Frontend Upload Process
+1. User drags/drops PDF or selects via file input (Upload.tsx)
+2. Frontend validates file type (application/pdf only)
+3. Frontend creates FormData with file
+4. Frontend sends POST /documents/upload with Bearer token
+5. Frontend updates UI to show upload status (pending → uploading → success/error)
+6. Frontend navigates to documents list after completion
+
+### Backend Processing
+1. JwtAuthGuard validates authentication
+2. FileInterceptor (Multer) parses multipart/form-data
+3. DocumentsController validates:
+   - File exists
+   - File size ≤ 25MB
+   - MIME type is application/pdf
+4. DocumentsService creates Document record (status: UPLOADED)
+5. BlobStore saves file to ./storage/{ownerId}/{documentId}.pdf
+6. Document updated with storageKey
+7. Status changed to PROCESSING
+8. ExtractionService reads PDF and extracts text using pdf-parse
+9. Text normalized (collapse whitespace)
+10. DocumentText record created/updated via upsert
+11. Status changed to PROCESSED
+12. Returns {id, status} to frontend
+
+### Error Handling
+- If any step fails after document creation, status set to FAILED
+- Error message stored in document.errorMessage
+- Frontend displays error message to user
 
 ---
 

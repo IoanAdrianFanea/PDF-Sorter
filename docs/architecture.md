@@ -43,6 +43,34 @@ Components:
 - JwtAuthGuard: Decorator to protect routes
 
 
+## Document Processing Layer
+
+Components:
+- DocumentsController: Upload endpoint with validation
+- DocumentsService: Orchestrates upload, storage, and extraction
+- ExtractionService: PDF text extraction using pdf-parse
+- BlobStore interface: Storage abstraction
+- LocalBlobStore: Local filesystem implementation
+
+Storage Model:
+- Directory structure: ./storage/{ownerId}/{documentId}.pdf
+- Storage key format: "{ownerId}/{documentId}.pdf"
+- Easy to organize by user and migrate to S3
+
+Status Flow:
+UPLOADED → PROCESSING → PROCESSED | FAILED
+
+Security:
+- All endpoints protected with JwtAuthGuard
+- User ID extracted from JWT payload
+- All queries filtered by ownerId
+- IDOR protection: return 404 for other users' documents
+
+Validation:
+- File type: application/pdf only
+- File size: 25MB maximum
+- Multer middleware handles multipart parsing
+
 ## Principles
 
 - Modular monolith
@@ -50,3 +78,5 @@ Components:
 - Explicit document status model
 - User-scoped data access
 - Storage behind abstraction
+- Security by default (auth on all routes)
+- Fail-safe error handling (mark FAILED, never lose uploads)
