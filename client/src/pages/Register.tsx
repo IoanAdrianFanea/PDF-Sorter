@@ -1,12 +1,12 @@
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-export default function Login() {
+export default function Register() {
   const navigate = useNavigate();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Mock login - just navigate to documents
+    // Mock registration - just navigate to documents
     navigate('/documents');
   };
 
@@ -39,18 +39,34 @@ export default function Login() {
         <div className="w-full max-w-[420px] bg-white dark:bg-[#15202b] rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-200 dark:border-slate-800 p-8 sm:p-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center size-12 rounded-full bg-primary/5 text-primary mb-4">
-              <span className="material-symbols-outlined text-2xl">lock</span>
+              <span className="material-symbols-outlined text-2xl">person_add</span>
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2 tracking-tight">
-              Welcome back
+              Create an account
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Please enter your details to sign in.</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Get started with DocIndex today.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="fullname">
+                Full name
+              </label>
+              <div className="relative">
+                <input
+                  className="block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-11 px-3 transition-colors placeholder:text-slate-400"
+                  id="fullname"
+                  name="fullname"
+                  placeholder="John Doe"
+                  required
+                  type="text"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="email">
-                Email address
+                Work email
               </label>
               <div className="relative">
                 <input
@@ -73,37 +89,18 @@ export default function Login() {
                   className="block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-11 px-3 transition-colors placeholder:text-slate-400"
                   id="password"
                   name="password"
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                   required
                   type="password"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center">
-                <input
-                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary bg-slate-50 dark:bg-slate-800 dark:border-slate-600"
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                />
-                <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="remember-me">
-                  Remember me
-                </label>
-              </div>
-              <div className="text-sm">
-                <a className="font-medium text-primary hover:text-primary/80 transition-colors" href="#">
-                  Forgot password?
-                </a>
-              </div>
-            </div>
-
             <button
-              className="flex w-full justify-center items-center rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200"
+              className="flex w-full justify-center items-center rounded-lg bg-primary mt-2 px-3 py-2.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200"
               type="submit"
             >
-              Sign in
+              Register
             </button>
           </form>
 
@@ -127,7 +124,7 @@ export default function Login() {
                 <path
                   d="M12.0003 20.45C16.667 20.45 20.5843 17.275 22.0153 12.9833H12.0003V12.9833H12.0003V9.55005H22.7843C22.9033 10.3667 22.9673 11.2 22.9673 12.05C22.9673 18.0667 18.0673 23 12.0003 23C5.93333 23 1.00033 18.0667 1.00033 12C1.00033 5.93338 5.93333 1.00005 12.0003 1.00005C14.7333 1.00005 17.1673 1.90005 19.1003 3.36672L16.4843 5.98338C15.5343 5.23338 14.0003 4.53338 12.0003 4.53338C8.01733 4.53338 4.65033 7.63338 4.65033 12C4.65033 16.3667 8.01733 19.4667 12.0003 19.4667V20.45Z"
                   fill="currentColor"
-                ></path>
+                />
               </svg>
               <span className="text-xs sm:text-sm">Google</span>
             </a>
@@ -145,16 +142,16 @@ export default function Login() {
                   clipRule="evenodd"
                   d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
                   fillRule="evenodd"
-                ></path>
+                />
               </svg>
               <span className="text-xs sm:text-sm">GitHub</span>
             </a>
           </div>
 
           <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
-            Don't have an account?
-            <Link className="font-semibold text-primary hover:text-primary/80 transition-colors ml-1" to="/register">
-              Register
+            Already have an account?
+            <Link className="font-semibold text-primary hover:text-primary/80 transition-colors ml-1" to="/login">
+              Sign in
             </Link>
           </p>
         </div>
