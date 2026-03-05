@@ -1,0 +1,20 @@
+// Storage abstraction interface
+// Allows swapping between local storage and S3/cloud storage
+export interface BlobStore {
+  /**
+   * Save a PDF file
+   */
+  savePdf(
+    ownerId: string,
+    documentId: string,
+    buffer: Buffer,
+  ): Promise<{ storageKey: string }>;
+
+  /**
+   * Get the full path to a stored file
+   */
+  getPath(storageKey: string): string;
+}
+
+// Injection token for BlobStore
+export const BLOB_STORE = Symbol('BLOB_STORE');

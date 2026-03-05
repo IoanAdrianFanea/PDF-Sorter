@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Documents from './pages/Documents';
+import Upload from './pages/Upload';
 import Jobs from './pages/Jobs';
 import { AppShell } from './components/layout/AppShell';
 
@@ -11,6 +12,14 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route
+          path="/upload"
+          element={
+            <AppShell>
+              <Upload />
+            </AppShell>
+          }
+        />
         <Route
           path="/documents"
           element={

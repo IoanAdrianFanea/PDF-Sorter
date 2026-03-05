@@ -1,87 +1,75 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Document } from '../types';
+import { documentsService } from '../api/documents';
+import type { Document as ApiDocument } from '../api/documents';
 import { DocumentTable } from '../components/documents/DocumentTable';
 import { DocumentDrawer } from '../components/documents/DocumentDrawer';
 import { BulkActionBar } from '../components/documents/BulkActionBar';
 import { ExportModal } from '../components/documents/ExportModal';
 
-// Mock data
-const mockDocuments: Document[] = [
-  {
-    id: '1',
-    fileName: 'Site_Safety_Audit_Oct23.pdf',
-    fileSize: '2.4 MB',
-    status: 'PROCESSED',
-    tags: ['Safety', 'Audit'],
-    uploadDate: 'Oct 24, 2023',
-    uploadedBy: 'System Upload',
-    pageCount: 14,
-    extractedText: `SITE SAFETY INSPECTION REPORT
-Location: Building B, North Wing
-Date: 2023-10-24
-Inspector: John Doe (ID: #4492)
+// Helper to convert API document to UI document
+const convertApiDocument = (apiDoc: ApiDocument): Document => {
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
-OBSERVATIONS:
-1. Temporary wiring in corridor needs guarding.
-2. Fire extinguisher #B-12 expired.
-3. PPE usage compliance observed at 95%.
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
-ACTION ITEMS:
-- Replace extinguisher by EOD.
-- Notify electrical sub regarding wiring.
-
-SIGNATURE: __________________`,
-  },
-  {
-    id: '2',
-    fileName: 'Vendor_Invoice_A882.pdf',
-    fileSize: '1.1 MB',
-    status: 'PROCESSING',
-    tags: ['Invoices'],
-    uploadDate: 'Oct 23, 2023',
-  },
-  {
-    id: '3',
-    fileName: 'Floor_Plan_L2_Rev3.pdf',
-    fileSize: '8.4 MB',
-    status: 'FAILED',
-    tags: ['Blueprints'],
-    uploadDate: 'Oct 23, 2023',
-  },
-  {
-    id: '4',
-    fileName: 'Electrical_Schematic_Zone4.pdf',
-    fileSize: '3.2 MB',
-    status: 'PROCESSED',
-    tags: ['Blueprints', 'Electrical'],
-    uploadDate: 'Oct 21, 2023',
-  },
-  {
-    id: '5',
-    fileName: 'Permit_Extension_Q4.pdf',
-    fileSize: '0.5 MB',
-    status: 'QUEUED',
-    tags: ['Permits'],
-    uploadDate: 'Oct 20, 2023',
-  },
-];
+  return {
+    id: apiDoc.id,
+    fileName: apiDoc.originalFilename,
+    fileSize: formatFileSize(apiDoc.sizeBytes),
+    status: apiDoc.status,
+    tags: [],
+    uploadDate: formatDate(apiDoc.uploadedAt),
+    uploadedBy: 'You',
+  };
+};
 
 export default function Documents() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExportModal, setShowExportModal] = useState(false);
 
+  // Fetch documents on mount
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setIsLoading(true);
+        const apiDocuments = await documentsService.listDocuments();
+        const convertedDocuments = apiDocuments.map(convertApiDocument);
+        setDocuments(convertedDocuments);
+        setError('');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load documents');
+        console.error('Failed to fetch documents:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDocuments();
+  }, []);
+
   useEffect(() => {
     if (id) {
-      const doc = mockDocuments.find((d) => d.id === id);
+      const doc = documents.find((d) => d.id === id);
       setSelectedDocument(doc || null);
     } else {
       setSelectedDocument(null);
     }
-  }, [id]);
+  }, [id, documents]);
 
   const handleSelectDocument = (docId: string) => {
     navigate(`/documents/${docId}`);
@@ -105,7 +93,7 @@ export default function Documents() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(mockDocuments.map((d) => d.id)));
+      setSelectedIds(new Set(documents.map((d) => d.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -141,7 +129,7 @@ export default function Documents() {
             </button>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span>Showing 1-{mockDocuments.length} of {mockDocuments.length}</span>
+            <span>Showing 1-{documents.length} of {documents.length}</span>
             <div className="flex gap-1 ml-2">
               <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50">
                 <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -153,14 +141,45 @@ export default function Documents() {
           </div>
         </div>
 
-        <DocumentTable
-          documents={mockDocuments}
-          selectedDocumentId={selectedDocument?.id || null}
-          selectedIds={selectedIds}
-          onSelectDocument={handleSelectDocument}
-          onToggleSelect={handleToggleSelect}
-          onSelectAll={handleSelectAll}
-        />
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+              <p className="text-slate-500">Loading documents...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <span className="material-symbols-outlined text-5xl text-red-500 mb-4">error</span>
+              <p className="text-red-600 dark:text-red-400 font-medium mb-2">Failed to load documents</p>
+              <p className="text-sm text-slate-500">{error}</p>
+            </div>
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-4">folder_open</span>
+              <p className="text-slate-600 dark:text-slate-400 font-medium mb-2">No documents yet</p>
+              <p className="text-sm text-slate-500 mb-4">Upload your first PDF to get started</p>
+              <button
+                onClick={() => navigate('/upload')}
+                className="bg-primary hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+              >
+                Upload Document
+              </button>
+            </div>
+          </div>
+        ) : (
+          <DocumentTable
+            documents={documents}
+            selectedDocumentId={selectedDocument?.id || null}
+            selectedIds={selectedIds}
+            onSelectDocument={handleSelectDocument}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+          />
+        )}
       </main>
 
       {selectedDocument && <DocumentDrawer document={selectedDocument} onClose={handleCloseDrawer} />}

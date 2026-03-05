@@ -39,10 +39,13 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="flex items-center justify-center gap-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors shadow-sm shadow-blue-200 dark:shadow-none">
+          <Link
+            to="/upload"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors shadow-sm shadow-blue-200 dark:shadow-none"
+          >
             <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
             <span>Upload</span>
-          </button>
+          </Link>
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
           <button className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">
             <span className="material-symbols-outlined">notifications</span>

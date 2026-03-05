@@ -1,0 +1,83 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Request,
+  BadRequestException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { DocumentsService } from './documents.service';
+
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+@Controller('documents')
+@UseGuards(JwtAuthGuard)
+export class DocumentsController {
+  constructor(private readonly documentsService: DocumentsService) {}
+
+  /**
+   * Upload a PDF file
+   */
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new PayloadTooLargeException(
+        `File too large. Maximum size is ${MAX_UPLOAD_BYTES / 1024 / 1024}MB`,
+      );
+    }
+
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Only PDF files are allowed');
+    }
+
+    return this.documentsService.uploadDocument(userId, file);
+  }
+
+  /**
+   * Get a single document by ID
+   */
+  @Get(':id')
+  async getDocument(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    return this.documentsService.getDocument(id, userId);
+  }
+
+  /**
+   * List all documents for current user
+   */
+  @Get()
+  async listDocuments(@Request() req) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    return this.documentsService.listDocuments(userId);
+  }
+}
