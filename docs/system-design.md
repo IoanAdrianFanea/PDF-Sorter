@@ -1,7 +1,48 @@
 # System Design
 
-This document describes the main runtime flows (upload, processing, search, export).
-It focuses on the “how the system behaves” view rather than implementation details.
+This document describes the main runtime flows (authentication, upload, processing, search, export).
+It focuses on the "how the system behaves" view rather than implementation details.
+
+---
+
+## Authentication Flow
+
+### Registration
+1. User submits email + password
+2. API validates input (email format, password length)
+3. API checks if user exists
+4. API hashes password with argon2
+5. API creates user in database
+6. API generates access token (15m) and refresh token (7d)
+7. API returns access token in response body
+8. API sets refresh token in HttpOnly cookie
+
+### Login
+1. User submits email + password
+2. API finds user by email
+3. API verifies password hash with argon2
+4. API generates tokens and sets cookie (same as registration)
+
+### Token Refresh
+1. Frontend sends refresh request (refresh token in cookie)
+2. API verifies refresh token signature
+3. API finds stored token hash in database
+4. API verifies token hash matches (argon2)
+5. API revokes old refresh token (sets revokedAt)
+6. API generates new tokens
+7. API returns new access token and sets new refresh cookie
+
+### Protected Request
+1. Frontend sends request with Authorization: Bearer {accessToken}
+2. JwtStrategy validates token signature
+3. JwtStrategy extracts user ID from token payload
+4. API verifies user exists
+5. Request proceeds with authenticated user
+
+### Logout
+1. User sends logout request (requires auth)
+2. API revokes all active refresh tokens for user
+3. API clears refresh token cookie
 
 ---
 

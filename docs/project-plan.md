@@ -32,7 +32,8 @@ The system emphasizes:
 ## Phases
 
 Phase 1 – Secure MVP
-- Auth
+- ✅ Auth (JWT with refresh token rotation, argon2 password hashing)
+- ✅ User model with refresh token storage
 - Upload + extraction
 - Search + snippets
 - Tags

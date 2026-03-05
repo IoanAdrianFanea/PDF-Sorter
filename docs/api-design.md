@@ -10,17 +10,33 @@ All document/tag/export operations are scoped to the authenticated user.
 
 ## Auth
 
+POST /auth/register
+- Create new user account
+- Request: { email, password }
+- Response: { accessToken }
+- Sets refresh token in HttpOnly cookie
+
 POST /auth/login
-- Log in
+- Authenticate user
+- Request: { email, password }
+- Response: { accessToken }
+- Sets refresh token in HttpOnly cookie
+
+POST /auth/refresh
+- Get new access token using refresh token
+- Reads refresh token from HttpOnly cookie
+- Response: { accessToken }
+- Rotates refresh token (revokes old, issues new)
 
 POST /auth/logout
-- Log out
+- Revoke all refresh tokens
+- Requires JWT authentication
+- Clears refresh token cookie
 
-GET /me
-- Get current user
-
-(Optional) POST /auth/register
-- Create account
+GET /auth/me
+- Get current authenticated user
+- Requires JWT authentication
+- Response: user object (without passwordHash)
 
 ---
 
