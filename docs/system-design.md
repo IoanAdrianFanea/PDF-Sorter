@@ -76,7 +76,7 @@ Notes:
    - File size ≤ 25MB
    - MIME type is application/pdf
 4. DocumentsService creates Document record (status: UPLOADED)
-5. BlobStore saves file to ./storage/{ownerId}/{documentId}.pdf
+5. BlobStore saves file to ./data/{ownerId}/{documentId}.pdf
 6. Document updated with storageKey
 7. Status changed to PROCESSING
 8. ExtractionService reads PDF and extracts text using pdf-parse

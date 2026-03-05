@@ -6,10 +6,10 @@ import type { BlobStore } from './blob-store.interface';
 // Local file storage implementation
 @Injectable()
 export class LocalBlobStore implements BlobStore {
-  private readonly rootDir = './storage';
+  private readonly rootDir = './data';
 
   /**
-   * Save a PDF file to disk at ./storage/{ownerId}/{documentId}.pdf
+   * Save a PDF file to disk at ./data/{ownerId}/{documentId}.pdf
    */
   async savePdf(
     ownerId: string,

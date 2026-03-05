@@ -53,7 +53,7 @@ Components:
 - LocalBlobStore: Local filesystem implementation
 
 Storage Model:
-- Directory structure: ./storage/{ownerId}/{documentId}.pdf
+- Directory structure: ./data/{ownerId}/{documentId}.pdf
 - Storage key format: "{ownerId}/{documentId}.pdf"
 - Easy to organize by user and migrate to S3
 
