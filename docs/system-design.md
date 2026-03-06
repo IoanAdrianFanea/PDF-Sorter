@@ -198,6 +198,73 @@ Notes:
 
 ---
 
+## Tags Flow (Implemented)
+
+### Tag Creation
+1. User creates tag from sidebar or document drawer
+2. Frontend validates tag name (non-empty)
+3. Sends POST /tags with { name } and Bearer token
+4. Backend validates authentication and DTO
+5. Backend creates tag with ownerId from JWT
+6. Returns 409 Conflict if tag name already exists for user
+7. Tag stored in database with unique constraint [ownerId, name]
+8. Frontend updates tag list immediately via React Context
+
+### Tag Attachment
+1. User opens document drawer
+2. User clicks "+" button in tags section
+3. Dropdown menu shows all user's tags
+4. User selects tag(s) to attach
+5. Sends POST /documents/:id/tags with { tagId } and Bearer token
+6. Backend validates document and tag ownership
+7. Backend creates DocumentTag record (many-to-many join)
+8. Frontend refreshes document tags immediately
+
+### Tag Removal
+1. User hovers over tag in document drawer
+2. "×" button appears next to tag name
+3. User clicks "×" button
+4. Sends DELETE /documents/:id/tags/:tagId with Bearer token
+5. Backend validates ownership and removes DocumentTag record
+6. Frontend removes tag from UI immediately
+
+### Tag Deletion
+1. User hovers over tag in sidebar
+2. "×" button appears next to tag name
+3. User clicks "×" button
+4. Confirmation dialog appears: "Delete tag? This will remove it from all documents."
+5. On confirm, sends DELETE /tags/:id with Bearer token
+6. Backend validates tag ownership
+7. Backend deletes tag (cascade deletes all DocumentTag records)
+8. Frontend notifies all components via callback registry
+9. Documents list refreshes to remove deleted tag
+10. Document drawer removes tag from current document
+11. Sidebar removes tag from tag list
+
+### Tag Filtering
+1. User clicks tag in sidebar
+2. Frontend sends GET /documents?tagId={tagId} with Bearer token
+3. Backend filters documents WHERE documentTags.tagId = tagId AND ownerId = userId
+4. Frontend displays filtered document list
+5. Sidebar highlights selected tag filter
+
+### Tag Synchronization
+- React Context (TagsContext) provides shared state across app
+- Sidebar, document drawer, and documents page all use same tag state
+- Creating tag in any component updates all components immediately
+- Callback registry pattern for tag deletion notifications
+- Components register callbacks on mount, unregister on unmount
+- Prevents stale state and ensures real-time UI updates
+
+### Tag Security
+- All tag operations validate user ownership
+- Tag names unique per user (constraint: [ownerId, name])
+- User can only see and manage their own tags
+- Attaching tag validates both document and tag ownership
+- Returns 404 if tag or document not found or not owned by user
+
+---
+
 ## Export Flow
 
 Phase 1 (sync):

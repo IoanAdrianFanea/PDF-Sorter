@@ -42,8 +42,8 @@ Phase 1 – Secure Core MVP
 - ✅ Document details (metadata with page count and text preview)
 - ✅ Search + snippets (contextual search with highlighting)
 - ✅ Delete (single document, bulk delete with cascade)
+- ✅ Tags (create, attach, remove, delete with cascade, filter by tag)
 
-- Tags (not yet implemented)
 - Export ZIP (not yet implemented)
 - Basic filter/sort (optional if simple)
 

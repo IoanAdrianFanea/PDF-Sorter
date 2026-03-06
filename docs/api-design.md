@@ -118,19 +118,40 @@ GET /documents/search?q={query}
 ## Tags
 
 GET /tags
-- List tags
+- List all tags for authenticated user
+- Returns: { tags: [{ id, name, createdAt }] }
+- Ordered alphabetically by name
 
 POST /tags
-- Create tag
+- Create new tag
+- Body: { name: string }
+- Validates: name required, non-empty
+- Returns: { id, name, ownerId, createdAt, updatedAt }
+- 409 Conflict if tag name already exists for user
 
 DELETE /tags/:id
-- Delete tag
+- Delete tag and remove from all documents
+- Validates ownership
+- Cascade deletes all DocumentTag records
+- Returns: 200 OK on success
 
 POST /documents/:id/tags
-- Attach tags to a document
+- Attach tag to document
+- Body: { tagId: string }
+- Validates: both document and tag owned by authenticated user
+- Creates DocumentTag record
+- Returns: document with updated tags array
 
 DELETE /documents/:id/tags/:tagId
-- Remove tag from a document
+- Remove tag from document
+- Validates: document ownership
+- Deletes DocumentTag record
+- Returns: 200 OK on success
+
+GET /documents?tagId={tagId}
+- Filter documents by tag
+- Works with existing pagination/sorting
+- Returns only documents with specified tag
 
 ---
 

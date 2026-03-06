@@ -175,3 +175,42 @@ Delete vs Archive
 - No soft delete or trash bin
 - User prompted with confirmation dialog
 - Archive/restore can be added in later phase if needed
+
+---
+
+## Tags Implementation
+
+React Context for Shared State
+- TagsContext provides global tag state across app
+- Eliminates duplicate tag fetching in multiple components
+- Single source of truth for tags list
+- Context exposed via custom useTags() hook
+- Components can read/refresh tags without prop drilling
+
+Callback Registry Pattern
+- Cross-component notifications for tag deletion
+- registerTagDeleteCallback() allows any component to listen for deletions
+- Returns unsubscribe function for cleanup
+- Enables loose coupling between sidebar and document views
+- Documents list and drawer respond to tag deletions in real-time
+- Prevents stale state when tags deleted from sidebar
+
+Cascade Delete for Tags
+- DELETE /tags/:id removes tag from database
+- Prisma onDelete: Cascade removes all DocumentTag records
+- Tag automatically removed from all associated documents
+- Simpler than manual cleanup in application code
+- Atomic database operation
+
+Tag Name Uniqueness Per User
+- Unique constraint on [ownerId, name] in Tag model
+- Prevents duplicate tag names within user's tag list
+- Returns 409 Conflict on duplicate
+- Different users can have tags with same name
+- Enforces clean tag organization
+
+Tag Attachment Validation
+- Both document and tag ownership validated on attach
+- Prevents user from attaching another user's tag
+- Prevents cross-user tag manipulation (IDOR protection)
+- Returns 404 if either resource not found or not owned
