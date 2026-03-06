@@ -91,3 +91,32 @@ Text Normalization
 - Remove leading/trailing whitespace
 - Makes search more reliable
 - Prevents formatting artifacts from affecting results
+
+---
+
+## Search Implementation
+
+Case-Insensitive In-Memory Search
+- SQLite doesn't support case-insensitive LIKE on all text efficiently
+- Fetch user's documents with text, filter in application layer
+- Simple and works well for MVP scale (hundreds of documents per user)
+- Easy to migrate to FTS5 later if needed
+
+Snippet Generation in Service Layer
+- Keep snippet logic close to search logic
+- Private helper method in DocumentsService
+- Extracts ~80 chars before/after first match
+- HTML <mark> tags for client-side highlighting
+- Consistent whitespace normalization
+
+Search UI Integration
+- Header search bar navigates to /search page
+- Dedicated Search page with results list
+- Click result opens document drawer (same as Documents page)
+- Preserves query in URL for shareable search links
+- Document drawer on right side (consistent UX)
+
+Response Size Optimization
+- Return only snippet, not full extractedText
+- Prevents large response payloads
+- Client fetches full document only when drawer opens

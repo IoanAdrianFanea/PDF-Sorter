@@ -34,10 +34,10 @@ The system emphasizes:
 Phase 1 – Secure MVP
 - ✅ Auth (JWT with refresh token rotation, argon2 password hashing)
 - ✅ User model with refresh token storage
-- Upload + extraction
-- Search + snippets
-- Tags
-- Export ZIP
+- ✅ Upload + extraction (single/multiple PDFs with pdf-parse)
+- ✅ Search + snippets (contextual search with highlighting)
+- Tags (not yet implemented)
+- Export ZIP (not yet implemented)
 
 Phase 2 – Production Layer
 - Structured logging

@@ -103,11 +103,41 @@ Notes:
 
 ---
 
-## Search Flow
+## Search Flow (Phase 1 - Implemented)
 
-1. User enters a query.
-2. API searches SQLite FTS (scoped to ownerId).
-3. API returns results with snippets.
+### Frontend Search Process
+1. User types query in header search bar
+2. Frontend validates query (minimum 2 characters)
+3. Frontend sends GET /documents/search?q={query} with Bearer token
+4. Frontend displays results with highlighted snippets
+5. User clicks result → opens document drawer on right side
+6. Document drawer fetches full metadata
+
+### Backend Search Process
+1. JwtAuthGuard validates authentication
+2. SearchQueryDto validates query (minimum 2 characters)
+3. DocumentsService fetches all user's documents with DocumentText
+4. Filter documents where extractedText contains query (case-insensitive)
+5. Limit to 20 results (ordered by uploadedAt DESC)
+6. Generate snippet for each match:
+   - Find first occurrence of query in text
+   - Extract ~80 characters before and after match
+   - Normalize whitespace (collapse to single spaces)
+   - Add "..." prefix/suffix if text is clipped
+   - Highlight match with <mark> tags
+7. Return { results: [{ documentId, filename, snippet }] }
+
+### Snippet Generation Logic
+- Case-insensitive matching
+- Shows contextual text around first match
+- HTML <mark> tags for highlighting (rendered with yellow background)
+- Does NOT return full extractedText field (too large)
+- Clean whitespace handling
+
+### Security
+- Only searches documents where ownerId = authenticated user
+- Document drawer validates ownership before showing details
+- All queries scoped by user ID
 
 ---
 
