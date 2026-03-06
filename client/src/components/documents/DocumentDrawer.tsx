@@ -1,12 +1,59 @@
+import { useState, useEffect } from 'react';
 import type { Document } from '../../types';
+import { tagsService, type Tag } from '../../api/tags';
+import { documentsService } from '../../api/documents';
+import type { DocumentTag } from '../../api/documents';
+import { useTags, registerTagDeleteCallback } from '../layout/AppShell';
 
 interface DocumentDrawerProps {
   document: Document;
   onClose: () => void;
   onDelete: (documentId: string) => void;
+  onTagsUpdated?: () => void;
 }
 
-export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerProps) {
+export function DocumentDrawer({ document, onClose, onDelete, onTagsUpdated }: DocumentDrawerProps) {
+  const { tags: availableTags, refreshTags } = useTags();
+  const [documentTags, setDocumentTags] = useState<DocumentTag[]>([]);
+  const [showTagMenu, setShowTagMenu] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch document tags
+  useEffect(() => {
+    const fetchDocumentDetails = async () => {
+      try {
+        const doc = await documentsService.getDocument(document.id);
+        setDocumentTags(doc.tags || []);
+      } catch (err) {
+        console.error('Failed to fetch document details:', err);
+      }
+    };
+
+    fetchDocumentDetails();
+  }, [document.id]);
+
+  // Close tag menu and reset states when document changes
+  useEffect(() => {
+    setShowTagMenu(false);
+    setIsCreatingTag(false);
+    setNewTagName('');
+  }, [document.id]);
+
+  // Listen for tag deletions and refresh document tags
+  useEffect(() => {
+    const unsubscribe = registerTagDeleteCallback((deletedTagId) => {
+      // Remove the deleted tag from document tags
+      setDocumentTags((prev) => prev.filter((tag) => tag.id !== deletedTagId));
+      onTagsUpdated?.();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [onTagsUpdated]);
+
   const getTagColor = (tag: string) => {
     const colors: Record<string, string> = {
       Safety: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200',
@@ -18,6 +65,65 @@ export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerPr
     };
     return colors[tag] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300';
   };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+
+    setIsLoading(true);
+    try {
+      await tagsService.createTag(newTagName.trim());
+      await refreshTags(); // Refresh tags in context (sidebar)
+      setNewTagName('');
+      setIsCreatingTag(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create tag');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAttachTag = async (tagId: string) => {
+    setIsLoading(true);
+    try {
+      await tagsService.attachTag(document.id, tagId);
+      const tag = availableTags.find((t) => t.id === tagId);
+      if (tag) {
+        setDocumentTags((prev) => [...prev, { id: tag.id, name: tag.name }]);
+      }
+      setShowTagMenu(false);
+      onTagsUpdated?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to attach tag');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRemoveTag = async (tagId: string) => {
+    setIsLoading(true);
+    try {
+      await tagsService.removeTag(document.id, tagId);
+      setDocumentTags((prev) => prev.filter((t) => t.id !== tagId));
+      onTagsUpdated?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove tag');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleTagMenu = async () => {
+    if (!showTagMenu) {
+      // Refresh tags when opening the menu to catch any created in sidebar
+      await refreshTags();
+    }
+    setShowTagMenu(!showTagMenu);
+  };
+
+  // Get tags not yet attached to this document
+  const unattachedTags = availableTags.filter(
+    (tag) => !documentTags.some((dt) => dt.id === tag.id)
+  );
 
   return (
     <aside className="w-[400px] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0 z-10 shadow-xl shadow-slate-200/50 dark:shadow-none">
@@ -80,21 +186,84 @@ export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerPr
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tags</label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {document.tags.map((tag) => (
+              {documentTags.map((tag) => (
                 <span
-                  key={tag}
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-transparent hover:border-slate-300 cursor-pointer group ${getTagColor(tag)}`}
+                  key={tag.id}
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-transparent hover:border-slate-300 cursor-pointer group ${getTagColor(tag.name)}`}
                 >
-                  {tag}
-                  <button className="ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {tag.name}
+                  <button
+                    onClick={() => handleRemoveTag(tag.id)}
+                    disabled={isLoading}
+                    className="ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                     <span className="material-symbols-outlined text-[12px]">close</span>
                   </button>
                 </span>
               ))}
-              <button className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 text-slate-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all">
-                <span className="material-symbols-outlined text-[14px] mr-1">add</span>
-                Add Tag
-              </button>
+              <div className="relative">
+                <button
+                  onClick={handleToggleTagMenu}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 text-slate-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[14px] mr-1">add</span>
+                  Add Tag
+                </button>
+                {showTagMenu && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10">
+                    <div className="p-2">
+                      {isCreatingTag ? (
+                        <div className="flex gap-1 mb-2">
+                          <input
+                            type="text"
+                            value={newTagName}
+                            onChange={(e) => setNewTagName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleCreateTag();
+                              if (e.key === 'Escape') setIsCreatingTag(false);
+                            }}
+                            placeholder="Tag name..."
+                            autoFocus
+                            className="flex-1 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <button
+                            onClick={handleCreateTag}
+                            disabled={isLoading || !newTagName.trim()}
+                            className="px-2 py-1 bg-primary text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setIsCreatingTag(true)}
+                          className="w-full text-left px-2 py-1.5 text-xs text-primary hover:bg-primary/5 rounded flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">add</span>
+                          Create new tag
+                        </button>
+                      )}
+                      {unattachedTags.length > 0 && (
+                        <>
+                          <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+                          <div className="max-h-32 overflow-y-auto">
+                            {unattachedTags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleAttachTag(tag.id)}
+                                disabled={isLoading}
+                                className="w-full text-left px-2 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                              >
+                                {tag.name}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

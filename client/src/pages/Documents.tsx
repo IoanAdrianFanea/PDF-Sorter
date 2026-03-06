@@ -7,6 +7,7 @@ import { DocumentTable } from '../components/documents/DocumentTable';
 import { DocumentDrawer } from '../components/documents/DocumentDrawer';
 import { BulkActionBar } from '../components/documents/BulkActionBar';
 import { ExportModal } from '../components/documents/ExportModal';
+import { registerTagDeleteCallback } from '../components/layout/AppShell';
 
 // Helper to convert API document to UI document
 const convertApiDocument = (apiDoc: ApiDocument): Document => {
@@ -26,7 +27,7 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
     fileName: apiDoc.originalFilename,
     fileSize: formatFileSize(apiDoc.sizeBytes),
     status: apiDoc.status,
-    tags: [],
+    tags: apiDoc.tags?.map((tag) => tag.name) || [],
     uploadDate: formatDate(apiDoc.uploadedAt),
     uploadedBy: 'You',
     pageCount: apiDoc.pageCount || undefined,
@@ -63,6 +64,28 @@ export default function Documents() {
 
     fetchDocuments();
   }, []);
+
+  // Listen for tag deletions and refresh documents list
+  useEffect(() => {
+    const unsubscribe = registerTagDeleteCallback((_tagId) => {
+      // Refresh documents list when a tag is deleted
+      handleRefreshDocuments();
+      
+      // If the drawer is open, refresh its document details too
+      if (selectedDocument) {
+        documentsService.getDocument(selectedDocument.id)
+          .then(apiDoc => {
+            const doc = convertApiDocument(apiDoc);
+            setSelectedDocument(doc);
+          })
+          .catch(err => console.error('Failed to refresh document:', err));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedDocument]);
 
   // Fetch selected document details when ID is in URL
   useEffect(() => {
@@ -160,6 +183,16 @@ export default function Documents() {
     setSelectedIds(new Set());
   };
 
+  const handleRefreshDocuments = async () => {
+    try {
+      const apiDocuments = await documentsService.listDocuments();
+      const convertedDocuments = apiDocuments.map(convertApiDocument);
+      setDocuments(convertedDocuments);
+    } catch (err) {
+      console.error('Failed to refresh documents:', err);
+    }
+  };
+
   return (
     <>
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
@@ -233,6 +266,7 @@ export default function Documents() {
           document={selectedDocument} 
           onClose={handleCloseDrawer} 
           onDelete={handleDeleteDocument}
+          onTagsUpdated={handleRefreshDocuments}
         />
       )}
 

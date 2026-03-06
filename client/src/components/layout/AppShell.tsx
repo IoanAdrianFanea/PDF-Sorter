@@ -1,5 +1,32 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, createContext, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { tagsService, type Tag } from '../../api/tags';
+
+interface TagsContextType {
+  tags: Tag[];
+  refreshTags: () => Promise<void>;
+  onTagDeleted?: (tagId: string) => void;
+}
+
+const TagsContext = createContext<TagsContextType | null>(null);
+
+export const useTags = () => {
+  const context = useContext(TagsContext);
+  if (!context) {
+    throw new Error('useTags must be used within AppShell');
+  }
+  return context;
+};
+
+// Callback registry for tag deletion notifications
+let tagDeletedCallbacks: ((tagId: string) => void)[] = [];
+
+export const registerTagDeleteCallback = (callback: (tagId: string) => void) => {
+  tagDeletedCallbacks.push(callback);
+  return () => {
+    tagDeletedCallbacks = tagDeletedCallbacks.filter(cb => cb !== callback);
+  };
+};
 
 interface AppShellProps {
   children: ReactNode;
@@ -9,10 +36,29 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
   const isSearchPage = location.pathname.startsWith('/search');
+
+  // Fetch tags function
+  const fetchTags = async () => {
+    try {
+      const fetchedTags = await tagsService.listTags();
+      setTags(fetchedTags);
+    } catch (err) {
+      console.error('Failed to fetch tags:', err);
+    }
+  };
+
+  // Fetch tags on mount
+  useEffect(() => {
+    fetchTags();
+  }, []);
 
   // Handle search form submission
   const handleSearch = (e: React.FormEvent) => {
@@ -22,9 +68,64 @@ export function AppShell({ children }: AppShellProps) {
     }
   };
 
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+
+    setIsLoading(true);
+    try {
+      await tagsService.createTag(newTagName.trim());
+      await fetchTags(); // Refresh tags list
+      setNewTagName('');
+      setIsCreatingTag(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create tag');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteTag = async (tagId: string, tagName: string) => {
+    if (!confirm(`Delete tag "${tagName}"? This will remove it from all documents.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await tagsService.deleteTag(tagId);
+      await fetchTags(); // Refresh tags list
+      
+      // Notify all registered callbacks
+      tagDeletedCallbacks.forEach(callback => callback(tagId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete tag');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getTagColor = (index: number): string => {
+    const colors = [
+      'bg-blue-500',
+      'bg-emerald-500',
+      'bg-orange-500',
+      'bg-purple-500',
+      'bg-slate-400',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-teal-500',
+    ];
+    return colors[index % colors.length];
+  };
+
+  const tagsContextValue: TagsContextType = {
+    tags,
+    refreshTags: fetchTags,
+  };
+
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 overflow-hidden h-screen flex flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 shrink-0 h-16 z-20 relative">
+    <TagsContext.Provider value={tagsContextValue}>
+      <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 overflow-hidden h-screen flex flex-col">
+        <header className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 shrink-0 h-16 z-20 relative">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
             <span className="material-symbols-outlined">folder_open</span>
@@ -170,31 +271,67 @@ export function AppShell({ children }: AppShellProps) {
           <div className="mb-8">
             <div className="flex items-center justify-between px-2 mb-3">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tags</h3>
-              <button className="text-slate-400 hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[16px]">add</span>
+              <button
+                onClick={() => setIsCreatingTag(!isCreatingTag)}
+                className="text-slate-400 hover:text-primary transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  {isCreatingTag ? 'close' : 'add'}
+                </span>
               </button>
             </div>
+            {isCreatingTag && (
+              <div className="mb-2 px-2">
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateTag();
+                      if (e.key === 'Escape') setIsCreatingTag(false);
+                    }}
+                    placeholder="New tag name..."
+                    autoFocus
+                    className="flex-1 px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={handleCreateTag}
+                    disabled={isLoading || !newTagName.trim()}
+                    className="px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
-              <button className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors text-left">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span className="flex-1">Blueprints</span>
-              </button>
-              <button className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors text-left">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span className="flex-1">Invoices</span>
-              </button>
-              <button className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors text-left">
-                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                <span className="flex-1">Safety Reports</span>
-              </button>
-              <button className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors text-left">
-                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                <span className="flex-1">Contracts</span>
-              </button>
-              <button className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors text-left">
-                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                <span className="flex-1">Permits</span>
-              </button>
+              {tags.length === 0 ? (
+                <p className="px-2 py-4 text-xs text-center text-slate-400">
+                  No tags yet. Create your first tag!
+                </p>
+              ) : (
+                tags.map((tag, index) => (
+                  <div
+                    key={tag.id}
+                    className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors"
+                  >
+                    <span className={`w-2 h-2 rounded-full ${getTagColor(index)}`}></span>
+                    <span className="flex-1">{tag.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTag(tag.id, tag.name);
+                      }}
+                      disabled={isLoading}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all p-0.5"
+                      title="Delete tag"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -214,6 +351,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {children}
       </div>
-    </div>
+      </div>
+    </TagsContext.Provider>
   );
 }

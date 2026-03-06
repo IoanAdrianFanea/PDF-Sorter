@@ -5,10 +5,11 @@ import { ExtractionService } from './extraction.service';
 import { LocalBlobStore } from '../storage/local-blob-store';
 import { BLOB_STORE } from '../storage/blob-store.interface';
 import { PrismaModule } from '../prisma/prisma.module';
+import { TagsModule } from '../tags/tags.module';
 
 // Documents module for upload and text extraction
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, TagsModule],
   controllers: [DocumentsController],
   providers: [
     DocumentsService,
