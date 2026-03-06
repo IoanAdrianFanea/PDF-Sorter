@@ -158,78 +158,80 @@ export default function Upload() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto w-full py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Upload Documents
-        </h2>
-        <button
-          onClick={() => navigate('/documents')}
-          className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-        >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          Back to Documents
-        </button>
-      </div>
-
-      {/* Drop Zone */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-16 mb-10 transition-all cursor-pointer ${
-          isDragging
-            ? 'border-primary bg-primary/5 dark:bg-primary/10'
-            : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-primary'
-        }`}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
-          <span className="material-symbols-outlined text-4xl">upload_file</span>
-        </div>
-        <p className="text-lg font-medium text-slate-900 dark:text-white mb-2">
-          {isDragging ? 'Drop files here' : 'Drag & drop PDF files here or browse'}
-        </p>
-        <p className="text-sm text-slate-500 mb-6">
-          Support for single or bulk upload. Maximum file size 25MB per file.
-        </p>
-        <button
-          type="button"
-          className="bg-white border border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium py-2.5 px-6 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
-        >
-          Select Files
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-      </div>
-
-      {/* Pending Files List */}
-      {pendingFiles.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-              Files ({pendingFiles.length})
-            </h3>
-            {pendingFiles.some((f) => f.status === 'pending') && (
-              <button
-                onClick={handleUploadAll}
-                disabled={pendingFiles.every((f) => f.status !== 'pending')}
-                className="bg-primary hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                Start Upload
-              </button>
-            )}
+    <main className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto w-full py-8 px-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Upload Documents
+            </h2>
+            <button
+              onClick={() => navigate('/documents')}
+              className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              Back to Documents
+            </button>
           </div>
 
-          <div className="space-y-3">
-            {pendingFiles.map((pendingFile) => (
+          {/* Drop Zone */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-16 mb-10 transition-all cursor-pointer ${
+              isDragging
+                ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-primary'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+              <span className="material-symbols-outlined text-4xl">upload_file</span>
+            </div>
+            <p className="text-lg font-medium text-slate-900 dark:text-white mb-2">
+              {isDragging ? 'Drop files here' : 'Drag & drop PDF files here or browse'}
+            </p>
+            <p className="text-sm text-slate-500 mb-6">
+              Support for single or bulk upload. Maximum file size 25MB per file.
+            </p>
+            <button
+              type="button"
+              className="bg-white border border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium py-2.5 px-6 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
+            >
+              Select Files
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </div>
+
+          {/* Pending Files List */}
+          {pendingFiles.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Files ({pendingFiles.length})
+                </h3>
+                {pendingFiles.some((f) => f.status === 'pending') && (
+                  <button
+                    onClick={handleUploadAll}
+                    disabled={pendingFiles.every((f) => f.status !== 'pending')}
+                    className="bg-primary hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                    Start Upload
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                {pendingFiles.map((pendingFile) => (
               <div
                 key={pendingFile.id}
                 className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm group hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
@@ -279,6 +281,8 @@ export default function Upload() {
           </div>
         </div>
       )}
-    </div>
+        </div>
+      </div>
+    </main>
   );
 }
