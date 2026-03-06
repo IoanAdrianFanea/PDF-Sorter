@@ -145,7 +145,14 @@ export function JobDrawer({ job, onClose }: JobDrawerProps) {
         <button className="px-4 py-2 text-sm font-medium text-text-muted hover:text-text-main hover:bg-background-subtle rounded-md transition-colors">
           Share
         </button>
-        <button className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors">
+        <button 
+          onClick={() => {
+            if (confirm('Delete this job? This is a placeholder action in the mock UI.')) {
+              alert('Job deletion not implemented yet - this will be connected to the backend in Phase 3.');
+            }
+          }}
+          className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+        >
           Delete Job
         </button>
       </div>

@@ -14,6 +14,11 @@ export interface BlobStore {
    * Get the full path to a stored file
    */
   getPath(storageKey: string): string;
+
+  /**
+   * Delete a PDF file
+   */
+  deletePdf(storageKey: string): Promise<void>;
 }
 
 // Injection token for BlobStore

@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
+  Body,
   Param,
   Query,
   UseGuards,
@@ -113,5 +115,46 @@ export class DocumentsController {
     }
 
     return this.documentsService.listDocuments(userId);
+  }
+
+  /**
+   * Delete a single document
+   */
+  @Delete(':id')
+  async deleteDocument(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    await this.documentsService.deleteDocument(id, userId);
+    return { success: true };
+  }
+
+  /**
+   * Bulk delete documents
+   */
+  @Post('bulk-delete')
+  async bulkDeleteDocuments(
+    @Body() body: { documentIds: string[] },
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    if (!Array.isArray(body.documentIds) || body.documentIds.length === 0) {
+      throw new BadRequestException('documentIds must be a non-empty array');
+    }
+
+    const result = await this.documentsService.bulkDeleteDocuments(
+      body.documentIds,
+      userId,
+    );
+    return result;
   }
 }

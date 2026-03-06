@@ -41,7 +41,7 @@ model RefreshToken {
 model Document {
   id               String         @id @default(cuid())
   ownerId          String
-  owner            User           @relation(fields: [ownerId], references: [id])
+  owner            User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   originalFilename String
   storageKey       String
   mimeType         String
@@ -56,7 +56,7 @@ model Document {
 
 model DocumentText {
   documentId    String   @id
-  document      Document @relation(fields: [documentId], references: [id])
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   extractedText String
   pageCount     Int?
   extractedAt   DateTime @default(now())
@@ -65,7 +65,7 @@ model DocumentText {
 model Tag {
   id        String   @id @default(cuid())
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
   createdAt DateTime @default(now())
 
@@ -78,8 +78,8 @@ model DocumentTag {
   documentId String
   tagId      String
 
-  document   Document @relation(fields: [documentId], references: [id])
-  tag        Tag      @relation(fields: [tagId], references: [id])
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([documentId, tagId])
 }

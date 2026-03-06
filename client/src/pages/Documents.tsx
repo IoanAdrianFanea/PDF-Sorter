@@ -117,10 +117,42 @@ export default function Documents() {
     setShowExportModal(true);
   };
 
-  const handleDeleteSelected = () => {
-    if (confirm(`Delete ${selectedIds.size} selected documents?`)) {
-      // TODO: Implement delete logic
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await documentsService.deleteDocument(documentId);
+      // Close drawer and navigate back
+      navigate('/documents');
+      // Refresh documents list
+      setDocuments((prev) => prev.filter((d) => d.id !== documentId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete document');
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected documents? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await documentsService.bulkDeleteDocuments(Array.from(selectedIds));
+      
+      // Show result if some failed
+      if (result.failed.length > 0) {
+        alert(`Deleted ${result.deleted} documents. Failed to delete ${result.failed.length} documents.`);
+      }
+      
+      // Clear selection
       setSelectedIds(new Set());
+      
+      // Refresh documents list
+      setDocuments((prev) => prev.filter((d) => !selectedIds.has(d.id)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete documents');
     }
   };
 
@@ -196,7 +228,13 @@ export default function Documents() {
         )}
       </main>
 
-      {selectedDocument && <DocumentDrawer document={selectedDocument} onClose={handleCloseDrawer} />}
+      {selectedDocument && (
+        <DocumentDrawer 
+          document={selectedDocument} 
+          onClose={handleCloseDrawer} 
+          onDelete={handleDeleteDocument}
+        />
+      )}
 
       {selectedIds.size > 0 && (
         <BulkActionBar

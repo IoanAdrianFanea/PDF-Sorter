@@ -168,6 +168,59 @@ export const documentsService = {
 
     return response.json();
   },
+
+  /**
+   * Delete a single document
+   */
+  async deleteDocument(id: string): Promise<{ success: boolean }> {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_URL}/documents/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Document not found');
+      }
+      throw new Error('Failed to delete document');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Bulk delete multiple documents
+   */
+  async bulkDeleteDocuments(documentIds: string[]): Promise<{ deleted: number; failed: string[] }> {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_URL}/documents/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ documentIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete documents');
+    }
+
+    return response.json();
+  },
 };
 
 export interface SearchResult {

@@ -91,6 +91,22 @@ export default function Search() {
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
   };
 
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await documentsService.deleteDocument(documentId);
+      // Close drawer and navigate back to search
+      navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+      // Remove document from results
+      setResults((prev) => prev.filter((r) => r.documentId !== documentId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete document');
+    }
+  };
+
   return (
     <>
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
@@ -201,7 +217,13 @@ export default function Search() {
         </div>
       </main>
 
-      {selectedDocument && <DocumentDrawer document={selectedDocument} onClose={handleCloseDrawer} />}
+      {selectedDocument && (
+        <DocumentDrawer 
+          document={selectedDocument} 
+          onClose={handleCloseDrawer} 
+          onDelete={handleDeleteDocument}
+        />
+      )}
     </>
   );
 }

@@ -3,9 +3,10 @@ import type { Document } from '../../types';
 interface DocumentDrawerProps {
   document: Document;
   onClose: () => void;
+  onDelete: (documentId: string) => void;
 }
 
-export function DocumentDrawer({ document, onClose }: DocumentDrawerProps) {
+export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerProps) {
   const getTagColor = (tag: string) => {
     const colors: Record<string, string> = {
       Safety: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200',
@@ -144,7 +145,10 @@ export function DocumentDrawer({ document, onClose }: DocumentDrawerProps) {
       </div>
 
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-        <button className="w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-lg text-sm font-medium transition-colors">
+        <button 
+          onClick={() => onDelete(document.id)}
+          className="w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
           Delete Document
         </button>
       </div>

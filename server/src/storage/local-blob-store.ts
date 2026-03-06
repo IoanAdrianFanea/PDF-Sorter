@@ -35,4 +35,19 @@ export class LocalBlobStore implements BlobStore {
   getPath(storageKey: string): string {
     return path.join(this.rootDir, storageKey);
   }
+
+  /**
+   * Delete a PDF file from disk
+   */
+  async deletePdf(storageKey: string): Promise<void> {
+    const filePath = path.join(this.rootDir, storageKey);
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      // Ignore error if file doesn't exist
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
 }

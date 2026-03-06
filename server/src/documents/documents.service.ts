@@ -291,4 +291,57 @@ export class DocumentsService {
 
     return `${prefixEllipsis}${beforeMatch}<mark>${match}</mark>${afterMatch}${suffixEllipsis}`;
   }
+
+  /**
+   * Delete a single document
+   */
+  async deleteDocument(documentId: string, userId: string): Promise<void> {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Check ownership
+    if (document.ownerId !== userId) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Delete physical file from storage
+    if (document.storageKey) {
+      await this.blobStore.deletePdf(document.storageKey);
+    }
+
+    // Delete from database (cascade will delete DocumentText and DocumentTag)
+    await this.prisma.document.delete({
+      where: { id: documentId },
+    });
+  }
+
+  /**
+   * Bulk delete multiple documents
+   */
+  async bulkDeleteDocuments(
+    documentIds: string[],
+    userId: string,
+  ): Promise<{ deleted: number; failed: string[] }> {
+    const deleted: string[] = [];
+    const failed: string[] = [];
+
+    for (const documentId of documentIds) {
+      try {
+        await this.deleteDocument(documentId, userId);
+        deleted.push(documentId);
+      } catch (error) {
+        failed.push(documentId);
+      }
+    }
+
+    return {
+      deleted: deleted.length,
+      failed,
+    };
+  }
 }
