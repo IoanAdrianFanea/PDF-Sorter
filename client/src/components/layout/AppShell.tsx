@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 interface AppShellProps {
   children: ReactNode;
@@ -7,8 +7,20 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
+  const isSearchPage = location.pathname.startsWith('/search');
+
+  // Handle search form submission
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim().length >= 2) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 overflow-hidden h-screen flex flex-col">
@@ -20,7 +32,7 @@ export function AppShell({ children }: AppShellProps) {
           <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">DocIndex Manager</h1>
         </div>
         
-        <div className="flex-1 max-w-xl px-8">
+        <form onSubmit={handleSearch} className="flex-1 max-w-xl px-8">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
               <span className="material-symbols-outlined text-[20px]">search</span>
@@ -29,6 +41,8 @@ export function AppShell({ children }: AppShellProps) {
               className="block w-full p-2 pl-10 text-sm text-slate-900 border border-slate-200 rounded-lg bg-slate-50 focus:ring-primary focus:border-primary dark:bg-slate-800 dark:border-slate-700 dark:placeholder-slate-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary transition-all"
               placeholder="Search documents, tags, or content..."
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-2">
               <kbd className="inline-flex items-center border border-slate-200 dark:border-slate-600 rounded px-2 text-xs font-sans font-medium text-slate-400 dark:text-slate-500">
@@ -36,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
               </kbd>
             </div>
           </div>
-        </div>
+        </form>
 
         <div className="flex items-center gap-4">
           <Link
@@ -75,6 +89,17 @@ export function AppShell({ children }: AppShellProps) {
               >
                 <span className="material-symbols-outlined text-[20px]">grid_view</span>
                 All Documents
+              </Link>
+              <Link
+                className={`flex items-center gap-3 px-2 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  isSearchPage
+                    ? 'bg-white dark:bg-slate-800 text-primary shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                to="/search"
+              >
+                <span className="material-symbols-outlined text-[20px]">search</span>
+                Search
               </Link>
               <Link
                 className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

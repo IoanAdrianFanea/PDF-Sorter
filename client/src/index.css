@@ -6,6 +6,19 @@
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }
+
+  mark {
+    background-color: #fef08a;
+    color: #854d0e;
+    font-weight: 600;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  .dark mark {
+    background-color: #713f12;
+    color: #fef08a;
+  }
 }
 
 @layer utilities {

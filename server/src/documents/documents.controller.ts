@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -13,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
+import { SearchQueryDto } from './dto/search-query.dto';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -50,6 +52,22 @@ export class DocumentsController {
     }
 
     return this.documentsService.uploadDocument(userId, file);
+  }
+
+  /**
+   * Search documents by text content
+   */
+  @Get('search')
+  async searchDocuments(
+    @Query() searchQuery: SearchQueryDto,
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    return this.documentsService.searchDocuments(userId, searchQuery.q);
   }
 
   /**

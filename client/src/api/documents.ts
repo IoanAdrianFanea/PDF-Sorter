@@ -110,4 +110,39 @@ export const documentsService = {
 
     return response.json();
   },
+
+  /**
+   * Search documents by text content
+   */
+  async searchDocuments(query: string): Promise<{ results: SearchResult[] }> {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(`${API_URL}/documents/search?${params}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 400) {
+        const error = await response.json().catch(() => ({ message: 'Invalid search query' }));
+        throw new Error(error.message || 'Invalid search query');
+      }
+      throw new Error('Search failed');
+    }
+
+    return response.json();
+  },
 };
+
+export interface SearchResult {
+  documentId: string;
+  filename: string;
+  snippet: string;
+}

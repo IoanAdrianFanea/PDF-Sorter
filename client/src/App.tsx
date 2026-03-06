@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Documents from './pages/Documents';
 import Upload from './pages/Upload';
 import Jobs from './pages/Jobs';
+import Search from './pages/Search';
 import { AppShell } from './components/layout/AppShell';
 
 function App() {
@@ -12,6 +13,22 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route
+          path="/search"
+          element={
+            <AppShell>
+              <Search />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/search/:id"
+          element={
+            <AppShell>
+              <Search />
+            </AppShell>
+          }
+        />
         <Route
           path="/upload"
           element={

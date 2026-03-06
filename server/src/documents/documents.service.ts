@@ -156,4 +156,95 @@ export class DocumentsService {
 
     return documents;
   }
+
+  /**
+   * Search documents by text content
+   */
+  async searchDocuments(userId: string, query: string) {
+    // Return empty results for invalid queries
+    if (!query || query.trim().length < 2) {
+      return { results: [] };
+    }
+
+    const lowerQuery = query.toLowerCase();
+
+    // Get all user's documents with extracted text
+    const allDocuments = await this.prisma.document.findMany({
+      where: {
+        ownerId: userId,
+        text: {
+          isNot: null,
+        },
+      },
+      include: {
+        text: {
+          select: {
+            extractedText: true,
+          },
+        },
+      },
+      orderBy: { uploadedAt: 'desc' },
+    });
+
+    // Filter documents that contain the query (case-insensitive)
+    const matchingDocuments = allDocuments
+      .filter((doc) => {
+        const text = doc.text?.extractedText || '';
+        return text.toLowerCase().includes(lowerQuery);
+      })
+      .slice(0, 20); // Limit to 20 results
+
+    // Generate snippets for each result
+    const results = matchingDocuments.map((doc) => ({
+      documentId: doc.id,
+      filename: doc.originalFilename,
+      snippet: this.createSnippet(doc.text?.extractedText || '', query),
+    }));
+
+    return { results };
+  }
+
+  /**
+   * Create a contextual snippet with highlighted match
+   */
+  private createSnippet(text: string, query: string): string {
+    const CHARS_BEFORE = 80;
+    const CHARS_AFTER = 80;
+
+    // Normalize whitespace in text
+    const normalizedText = text.replace(/\s+/g, ' ').trim();
+
+    // Find first match (case-insensitive)
+    const lowerText = normalizedText.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const matchIndex = lowerText.indexOf(lowerQuery);
+
+    // No match found (shouldn't happen due to query, but safety check)
+    if (matchIndex === -1) {
+      return '...';
+    }
+
+    // Calculate snippet boundaries
+    const startIndex = Math.max(0, matchIndex - CHARS_BEFORE);
+    const endIndex = Math.min(
+      normalizedText.length,
+      matchIndex + query.length + CHARS_AFTER,
+    );
+
+    // Extract snippet
+    let snippet = normalizedText.substring(startIndex, endIndex);
+
+    // Add ellipsis if clipped
+    const prefixEllipsis = startIndex > 0 ? '... ' : '';
+    const suffixEllipsis = endIndex < normalizedText.length ? ' ...' : '';
+
+    // Highlight the match with <mark> tags
+    const matchStart = matchIndex - startIndex;
+    const matchEnd = matchStart + query.length;
+    const beforeMatch = snippet.substring(0, matchStart);
+    const match = snippet.substring(matchStart, matchEnd);
+    const afterMatch = snippet.substring(matchEnd);
+
+    return `${prefixEllipsis}${beforeMatch}<mark>${match}</mark>${afterMatch}${suffixEllipsis}`;
+  }
 }
