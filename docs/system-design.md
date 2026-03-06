@@ -141,6 +141,63 @@ Notes:
 
 ---
 
+## Document Details Flow (Implemented)
+
+### Page Count Capture
+1. During PDF extraction, pdf-parse returns numpages field
+2. Backend stores pageCount in DocumentText table
+3. Frontend displays actual page count in document drawer
+4. Falls back to "N/A" if page count not available
+
+### Text Preview Generation
+1. Backend extracts first 150 characters of DocumentText.extractedText
+2. Appends "..." if text is longer than 150 characters
+3. Returned in GET /documents/:id as textPreview field
+4. Frontend displays in document drawer "Extracted Text" section
+5. Full text available via GET /documents/:id/text endpoint
+
+---
+
+## Delete Flow (Implemented)
+
+### Single Document Delete
+1. User clicks "Delete Document" in document drawer
+2. Frontend shows confirmation dialog
+3. On confirm, sends DELETE /documents/:id with Bearer token
+4. Backend validates authentication and ownership
+5. Backend deletes physical file from storage (./data/{ownerId}/{documentId}.pdf)
+6. Backend deletes document from database (cascade deletes DocumentText and DocumentTag)
+7. Frontend closes drawer and removes document from UI list
+8. Document permanently deleted (survives page refresh)
+
+### Bulk Delete
+1. User selects multiple documents via checkboxes
+2. Bottom action bar appears with Delete button
+3. User clicks Delete → confirmation dialog shows count
+4. On confirm, sends POST /documents/bulk-delete with documentIds array
+5. Backend processes each document individually
+6. Backend returns { deleted: count, failed: [] }
+7. Frontend shows result if any failures occurred
+8. Frontend removes deleted documents from UI list
+9. Selection cleared automatically
+
+### Cascade Delete Implementation
+1. Prisma schema configured with onDelete: Cascade on all foreign keys
+2. Document deletion automatically removes:
+   - DocumentText record (extracted text + page count)
+   - DocumentTag records (tag associations)
+   - Physical PDF file from storage
+3. Migration applied to database schema
+4. Prevents foreign key constraint violations
+
+### Delete Security
+- All delete operations validate document ownership
+- User can only delete their own documents
+- Returns 404 if document not found or not owned by user
+- Physical file deletion handles missing files gracefully (ENOENT)
+
+---
+
 ## Export Flow
 
 Phase 1 (sync):

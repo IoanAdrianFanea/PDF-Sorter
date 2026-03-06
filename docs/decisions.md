@@ -120,3 +120,58 @@ Response Size Optimization
 - Return only snippet, not full extractedText
 - Prevents large response payloads
 - Client fetches full document only when drawer opens
+
+---
+
+## Document Details Implementation
+
+Page Count Capture
+- pdf-parse library returns numpages field naturally
+- Store in DocumentText.pageCount (nullable Int)
+- Captured during initial extraction (no reprocessing needed)
+- Displayed in document drawer properties section
+- Shows actual page count or "N/A" if not available
+
+Text Preview Strategy
+- Generate preview at query time (not stored)
+- First 150 characters with "..." suffix
+- Small enough for list/detail responses
+- Large enough to be useful preview
+- Full text available via separate endpoint
+- Keeps response sizes manageable
+
+---
+
+## Delete Implementation
+
+Cascade Delete via Prisma Schema
+- All foreign keys configured with onDelete: Cascade
+- Document → DocumentText (one-to-one)
+- Document → DocumentTag (one-to-many)
+- Document → User (many-to-one, cascade on user delete)
+- Tag → DocumentTag (one-to-many)
+- Prevents foreign key constraint violations
+- Database handles related record cleanup automatically
+
+Physical File Deletion
+- BlobStore.deletePdf() added to storage abstraction
+- LocalBlobStore uses fs.unlink() to remove file
+- Ignores ENOENT errors (file already deleted)
+- File deleted before database record (fail-safe)
+- If file delete fails, error thrown and database unchanged
+
+Bulk Delete Strategy
+- Sequential processing (not parallel)
+- Each document validated for ownership individually
+- Continues on failure (doesn't abort entire batch)
+- Returns both success count and failed IDs
+- Frontend shows result only if failures occurred
+- Simple and reliable for MVP scale
+
+Delete vs Archive
+- Hard delete chosen for Phase 1 simplicity
+- Physical file removed from storage
+- Database records permanently removed
+- No soft delete or trash bin
+- User prompted with confirmation dialog
+- Archive/restore can be added in later phase if needed

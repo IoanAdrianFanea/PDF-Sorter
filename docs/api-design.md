@@ -59,17 +59,44 @@ GET /documents
 - Fields: id, originalFilename, mimeType, sizeBytes, uploadedAt, status, errorMessage, extractedAt
 
 GET /documents/:id
-- Get single document metadata
+- Get single document metadata with details
 - Requires JWT authentication
 - Validates document ownership (IDOR protection)
-- Response: Document object with extractedAt timestamp
-- Does NOT include extractedText (too large)
+- Response: Document object with:
+  - id, originalFilename, mimeType, sizeBytes, uploadedAt, status, errorMessage
+  - extractedAt: timestamp when text was extracted
+  - pageCount: number of pages in PDF (null if not available)
+  - textPreview: first 150 characters of extracted text with "..." suffix
+- Does NOT include full extractedText (use /documents/:id/text for that)
+
+GET /documents/:id/text
+- Get full extracted text for a document
+- Requires JWT authentication
+- Validates document ownership (IDOR protection)
+- Response: { documentId: string, extractedText: string, extractedAt: string }
+- Returns 404 if no text extracted yet
 
 GET /documents/:id/download
 - Download original PDF (not yet implemented)
 
 DELETE /documents/:id
-- Delete document (not yet implemented)
+- Delete a single document
+- Requires JWT authentication
+- Validates document ownership (IDOR protection)
+- Deletes physical file from storage
+- Cascade deletes DocumentText and DocumentTag records
+- Response: { success: true }
+- Returns 404 if document not found or not owned by user
+
+POST /documents/bulk-delete
+- Delete multiple documents in one request
+- Requires JWT authentication
+- Request: { documentIds: string[] }
+- Validates ownership for each document
+- Processes each delete individually
+- Response: { deleted: number, failed: string[] }
+- Returns count of successfully deleted documents
+- Returns array of IDs that failed to delete
 
 ---
 

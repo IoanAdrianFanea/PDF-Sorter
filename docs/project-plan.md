@@ -34,8 +34,10 @@ The system emphasizes:
 Phase 1 – Secure MVP
 - ✅ Auth (JWT with refresh token rotation, argon2 password hashing)
 - ✅ User model with refresh token storage
-- ✅ Upload + extraction (single/multiple PDFs with pdf-parse)
+- ✅ Upload + extraction (single/multiple PDFs with pdf-parse, page count capture)
+- ✅ Document details (metadata with page count and text preview)
 - ✅ Search + snippets (contextual search with highlighting)
+- ✅ Delete (single document, bulk delete with cascade)
 - Tags (not yet implemented)
 - Export ZIP (not yet implemented)
 
