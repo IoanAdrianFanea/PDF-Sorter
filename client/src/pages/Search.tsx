@@ -72,6 +72,8 @@ export default function Search() {
           tags: [],
           uploadDate: formatDate(apiDoc.uploadedAt),
           uploadedBy: 'You',
+          pageCount: apiDoc.pageCount || undefined,
+          extractedText: apiDoc.textPreview || undefined,
         };
 
         setSelectedDocument(doc);

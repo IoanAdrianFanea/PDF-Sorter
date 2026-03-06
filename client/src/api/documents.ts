@@ -12,6 +12,8 @@ export interface Document {
   status: DocumentStatus;
   errorMessage?: string | null;
   extractedAt?: string | null;
+  pageCount?: number | null;
+  textPreview?: string | null;
 }
 
 export interface UploadResponse {
@@ -112,6 +114,33 @@ export const documentsService = {
   },
 
   /**
+   * Get extracted text for a document
+   */
+  async getDocumentText(id: string): Promise<DocumentText> {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_URL}/documents/${id}/text`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Extracted text not found');
+      }
+      throw new Error('Failed to fetch document text');
+    }
+
+    return response.json();
+  },
+
+  /**
    * Search documents by text content
    */
   async searchDocuments(query: string): Promise<{ results: SearchResult[] }> {
@@ -145,4 +174,10 @@ export interface SearchResult {
   documentId: string;
   filename: string;
   snippet: string;
+}
+
+export interface DocumentText {
+  documentId: string;
+  extractedText: string;
+  extractedAt: string;
 }

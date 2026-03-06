@@ -71,6 +71,22 @@ export class DocumentsController {
   }
 
   /**
+   * Get extracted text for a document
+   */
+  @Get(':id/text')
+  async getDocumentText(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    return this.documentsService.getDocumentText(id, userId);
+  }
+
+  /**
    * Get a single document by ID
    */
   @Get(':id')

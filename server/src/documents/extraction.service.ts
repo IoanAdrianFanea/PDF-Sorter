@@ -7,7 +7,7 @@ export class ExtractionService {
   /**
    * Extract text from a PDF file
    */
-  async extractTextFromPdfPath(pdfPath: string): Promise<string> {
+  async extractTextFromPdfPath(pdfPath: string): Promise<{ text: string; pageCount: number }> {
     // Read PDF file into buffer
     const dataBuffer = await fs.readFile(pdfPath);
 
@@ -18,6 +18,9 @@ export class ExtractionService {
     // Normalize whitespace in extracted text
     const normalizedText = data.text.replace(/\s+/g, ' ').trim();
 
-    return normalizedText;
+    return {
+      text: normalizedText,
+      pageCount: data.numpages,
+    };
   }
 }

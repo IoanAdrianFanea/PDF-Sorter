@@ -58,6 +58,7 @@ model DocumentText {
   documentId    String   @id
   document      Document @relation(fields: [documentId], references: [id])
   extractedText String
+  pageCount     Int?
   extractedAt   DateTime @default(now())
 }
 

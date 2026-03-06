@@ -29,6 +29,8 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
     tags: [],
     uploadDate: formatDate(apiDoc.uploadedAt),
     uploadedBy: 'You',
+    pageCount: apiDoc.pageCount || undefined,
+    extractedText: apiDoc.textPreview || undefined,
   };
 };
 
@@ -62,14 +64,26 @@ export default function Documents() {
     fetchDocuments();
   }, []);
 
+  // Fetch selected document details when ID is in URL
   useEffect(() => {
-    if (id) {
-      const doc = documents.find((d) => d.id === id);
-      setSelectedDocument(doc || null);
-    } else {
+    if (!id) {
       setSelectedDocument(null);
+      return;
     }
-  }, [id, documents]);
+
+    const fetchDocument = async () => {
+      try {
+        const apiDoc = await documentsService.getDocument(id);
+        const doc = convertApiDocument(apiDoc);
+        setSelectedDocument(doc);
+      } catch (err) {
+        console.error('Failed to fetch document:', err);
+        setSelectedDocument(null);
+      }
+    };
+
+    fetchDocument();
+  }, [id]);
 
   const handleSelectDocument = (docId: string) => {
     navigate(`/documents/${docId}`);

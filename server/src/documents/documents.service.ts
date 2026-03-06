@@ -58,7 +58,7 @@ export class DocumentsService {
 
       // Extract text from PDF
       const filePath = this.blobStore.getPath(storageKey);
-      const extractedText =
+      const { text: extractedText, pageCount } =
         await this.extractionService.extractTextFromPdfPath(filePath);
 
       // Save extracted text
@@ -67,9 +67,11 @@ export class DocumentsService {
         create: {
           documentId: document.id,
           extractedText,
+          pageCount,
         },
         update: {
           extractedText,
+          pageCount,
         },
       });
 
@@ -110,6 +112,8 @@ export class DocumentsService {
         text: {
           select: {
             extractedAt: true,
+            extractedText: true,
+            pageCount: true,
           },
         },
       },
@@ -124,6 +128,12 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
+    // Create a preview of the extracted text (first 150 characters)
+    const textPreview = document.text?.extractedText
+      ? document.text.extractedText.substring(0, 150) + 
+        (document.text.extractedText.length > 150 ? '...' : '')
+      : null;
+
     return {
       id: document.id,
       originalFilename: document.originalFilename,
@@ -133,6 +143,8 @@ export class DocumentsService {
       status: document.status,
       errorMessage: document.errorMessage,
       extractedAt: document.text?.extractedAt || null,
+      pageCount: document.text?.pageCount || null,
+      textPreview,
     };
   }
 
@@ -143,6 +155,7 @@ export class DocumentsService {
     const documents = await this.prisma.document.findMany({
       where: { ownerId: userId },
       orderBy: { uploadedAt: 'desc' },
+      take: 50,
       select: {
         id: true,
         originalFilename: true,
@@ -155,6 +168,37 @@ export class DocumentsService {
     });
 
     return documents;
+  }
+
+  /**
+   * Get extracted text for a document
+   */
+  async getDocumentText(documentId: string, userId: string) {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        text: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Check ownership
+    if (document.ownerId !== userId) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!document.text) {
+      throw new NotFoundException('No extracted text available');
+    }
+
+    return {
+      documentId: document.id,
+      extractedText: document.text.extractedText,
+      extractedAt: document.text.extractedAt,
+    };
   }
 
   /**

@@ -127,7 +127,7 @@ export function DocumentDrawer({ document, onClose }: DocumentDrawerProps) {
               <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
                 <p className="text-[10px] text-slate-400 uppercase">Page Count</p>
                 <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  {document.pageCount || 14} Pages
+                  {document.pageCount ? `${document.pageCount} Pages` : 'N/A'}
                 </p>
               </div>
               <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
