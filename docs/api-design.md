@@ -103,14 +103,16 @@ POST /documents/bulk-delete
 ## Search
 
 GET /documents/search?q={query}
-- Search documents by content with contextual snippets
+- Search documents by filename and content with contextual snippets
 - Requires JWT authentication
 - Query parameter: q (string, min 2 characters)
-- Searches inside DocumentText.extractedText (case-insensitive)
+- Searches both originalFilename and DocumentText.extractedText (case-insensitive)
 - Returns max 20 results ordered by uploadedAt DESC
 - Response: { results: SearchResult[] }
 - SearchResult: { documentId: string, filename: string, snippet: string }
-- Snippet format: "... text before <mark>match</mark> text after ..."
+- Snippet format:
+  - Text match: "... text before <mark>match</mark> text after ..."
+  - Filename match: "Filename: name<mark>match</mark>name.pdf"
 - Only searches documents owned by authenticated user
 
 ---

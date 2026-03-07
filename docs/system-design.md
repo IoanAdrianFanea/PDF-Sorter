@@ -117,11 +117,11 @@ Notes:
 1. JwtAuthGuard validates authentication
 2. SearchQueryDto validates query (minimum 2 characters)
 3. DocumentsService fetches all user's documents with DocumentText
-4. Filter documents where extractedText contains query (case-insensitive)
+4. Filter documents where originalFilename OR extractedText contains query (case-insensitive)
 5. Limit to 20 results (ordered by uploadedAt DESC)
 6. Generate snippet for each match:
-   - Find first occurrence of query in text
-   - Extract ~80 characters before and after match
+   - If found in text: Extract ~80 characters before and after match
+   - If found only in filename: Show "Filename: {highlighted name}"
    - Normalize whitespace (collapse to single spaces)
    - Add "..." prefix/suffix if text is clipped
    - Highlight match with <mark> tags

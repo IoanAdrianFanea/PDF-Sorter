@@ -102,10 +102,18 @@ Case-Insensitive In-Memory Search
 - Simple and works well for MVP scale (hundreds of documents per user)
 - Easy to migrate to FTS5 later if needed
 
+Filename + Content Search
+- Search matches against both originalFilename and extractedText
+- Users can find documents by remembering filename or content
+- Filename-only matches show "Filename: [highlighted]" snippet
+- Content matches show contextual text snippet
+- Improves discoverability without complex query syntax
+
 Snippet Generation in Service Layer
 - Keep snippet logic close to search logic
-- Private helper method in DocumentsService
-- Extracts ~80 chars before/after first match
+- Private helper methods in DocumentsService
+- Text matches: Extract ~80 chars before/after first match
+- Filename matches: Show full filename with highlighting
 - HTML <mark> tags for client-side highlighting
 - Consistent whitespace normalization
 
