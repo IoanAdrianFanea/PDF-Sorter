@@ -7,6 +7,7 @@ import { DocumentTable } from '../components/documents/DocumentTable';
 import { DocumentDrawer } from '../components/documents/DocumentDrawer';
 import { BulkActionBar } from '../components/documents/BulkActionBar';
 import { ExportModal } from '../components/documents/ExportModal';
+import { ComingSoonToast } from '../components/common/ComingSoonToast';
 import { registerTagDeleteCallback } from '../components/layout/AppShell';
 
 // Helper to convert API document to UI document
@@ -44,6 +45,7 @@ export default function Documents() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExportModal, setShowExportModal] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState<{ feature: string; phase: string } | null>(null);
 
   // Fetch documents on mount
   useEffect(() => {
@@ -198,11 +200,17 @@ export default function Documents() {
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <button 
+              onClick={() => setComingSoonFeature({ feature: 'Advanced Filtering', phase: 'Phase 2' })}
+              className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
               <span>Filter</span>
               <span className="material-symbols-outlined text-[16px]">filter_list</span>
             </button>
-            <button className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <button 
+              onClick={() => setComingSoonFeature({ feature: 'Advanced Sorting', phase: 'Phase 2' })}
+              className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
               <span>Sort</span>
               <span className="material-symbols-outlined text-[16px]">sort</span>
             </button>
@@ -283,6 +291,13 @@ export default function Documents() {
         isOpen={showExportModal} 
         onClose={() => setShowExportModal(false)} 
         documentIds={Array.from(selectedIds)}
+      />
+
+      <ComingSoonToast
+        isOpen={comingSoonFeature !== null}
+        onClose={() => setComingSoonFeature(null)}
+        feature={comingSoonFeature?.feature || ''}
+        phase={comingSoonFeature?.phase || ''}
       />
     </>
   );

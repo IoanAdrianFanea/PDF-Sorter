@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Job } from '../types';
 import { JobsTable } from '../components/jobs/JobsTable';
 import { JobDrawer } from '../components/jobs/JobDrawer';
+import { ComingSoonToast } from '../components/common/ComingSoonToast';
 
 // Mock data
 const mockJobs: Job[] = [
@@ -63,6 +64,7 @@ export default function Jobs() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [showComingSoon, setShowComingSoon] = useState(true);
 
   useEffect(() => {
     if (id) {
@@ -84,6 +86,21 @@ export default function Jobs() {
   return (
     <>
       <main className="flex-1 flex flex-col min-w-0 bg-white relative">
+        {/* Coming Soon Banner */}
+        <div className="shrink-0 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">info</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                Preview Mode: Jobs & Queue Processing
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                This page shows mock data. Full job queue functionality requires <span className="font-semibold">Phase 3 - Async Processing</span> and will be available in a future update.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="h-12 border-b border-border-subtle flex items-center justify-between px-6 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-4 text-sm text-text-muted">
             <span className="font-medium text-text-main">All Jobs</span>
@@ -112,6 +129,13 @@ export default function Jobs() {
           </>
         )}
       </main>
+
+      <ComingSoonToast
+        isOpen={showComingSoon}
+        onClose={() => setShowComingSoon(false)}
+        feature="Jobs & Queue Processing"
+        phase="Phase 3"
+      />
     </>
   );
 }
