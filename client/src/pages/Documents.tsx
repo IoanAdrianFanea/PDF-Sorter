@@ -279,7 +279,11 @@ export default function Documents() {
         />
       )}
 
-      <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
+      <ExportModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+        documentIds={Array.from(selectedIds)}
+      />
     </>
   );
 }

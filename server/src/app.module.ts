@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DocumentsModule } from './documents/documents.module';
 import { TagsModule } from './tags/tags.module';
+import { ExportsModule } from './exports/exports.module';
 import path from "path";
 
 @Module({
@@ -20,6 +21,7 @@ import path from "path";
     UsersModule,
     DocumentsModule,
     TagsModule,
+    ExportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

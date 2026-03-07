@@ -30,6 +30,15 @@ export class LocalBlobStore implements BlobStore {
   }
 
   /**
+   * Get a PDF file as a Buffer
+   */
+  async getPdf(ownerId: string, documentId: string): Promise<Buffer> {
+    const storageKey = `${ownerId}/${documentId}.pdf`;
+    const filePath = path.join(this.rootDir, storageKey);
+    return await fs.readFile(filePath);
+  }
+
+  /**
    * Get full file system path from storage key
    */
   getPath(storageKey: string): string {

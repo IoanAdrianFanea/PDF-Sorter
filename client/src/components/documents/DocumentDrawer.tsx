@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { Document } from '../../types';
-import { tagsService, type Tag } from '../../api/tags';
+import { tagsService } from '../../api/tags';
 import { documentsService } from '../../api/documents';
 import type { DocumentTag } from '../../api/documents';
+import { downloadDocument } from '../../api/exports';
 import { useTags, registerTagDeleteCallback } from '../layout/AppShell';
 
 interface DocumentDrawerProps {
@@ -19,6 +20,7 @@ export function DocumentDrawer({ document, onClose, onDelete, onTagsUpdated }: D
   const [newTagName, setNewTagName] = useState('');
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Fetch document tags
   useEffect(() => {
@@ -120,6 +122,17 @@ export function DocumentDrawer({ document, onClose, onDelete, onTagsUpdated }: D
     setShowTagMenu(!showTagMenu);
   };
 
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadDocument(document.id);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to download document');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // Get tags not yet attached to this document
   const unattachedTags = availableTags.filter(
     (tag) => !documentTags.some((dt) => dt.id === tag.id)
@@ -173,9 +186,22 @@ export function DocumentDrawer({ document, onClose, onDelete, onTagsUpdated }: D
           </div>
 
           <div className="flex gap-3">
-            <button className="flex-1 bg-primary text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              Download
+            <button 
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex-1 bg-primary text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">download</span>
+                  Download
+                </>
+              )}
             </button>
             <button className="flex-1 bg-white border border-slate-200 text-slate-700 py-2 px-4 rounded-lg font-medium text-sm hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center justify-center gap-2">
               <span className="material-symbols-outlined text-[18px]">share</span>

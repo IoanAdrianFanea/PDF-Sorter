@@ -1,10 +1,28 @@
+import { useState } from 'react';
+import { exportDocuments } from '../../api/exports';
+
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  documentIds: string[];
 }
 
-export function ExportModal({ isOpen, onClose }: ExportModalProps) {
+export function ExportModal({ isOpen, onClose, documentIds }: ExportModalProps) {
+  const [isExporting, setIsExporting] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportDocuments(documentIds);
+      onClose();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to export documents');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -14,50 +32,24 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            disabled={isExporting}
           >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <div className="space-y-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Export Format
-            </label>
-            <select className="block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm focus:border-primary focus:ring-primary">
-              <option>ZIP Archive</option>
-              <option>PDF Bundle</option>
-              <option>Individual Files</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Include
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="text-sm text-slate-600 dark:text-slate-300">Original documents</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="text-sm text-slate-600 dark:text-slate-300">Extracted text</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="text-sm text-slate-600 dark:text-slate-300">Metadata</span>
-              </label>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">info</span>
+              <div>
+                <h3 className="font-medium text-blue-900 dark:text-blue-200 text-sm mb-1">
+                  Export as ZIP Archive
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  {documentIds.length} {documentIds.length === 1 ? 'document' : 'documents'} will be packaged into a ZIP file for download.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -65,13 +57,27 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            disabled={isExporting}
+            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
-          <button className="px-4 py-2 text-sm font-medium bg-primary hover:bg-blue-600 text-white rounded-lg transition-colors shadow-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Export
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="px-4 py-2 text-sm font-medium bg-primary hover:bg-blue-600 text-white rounded-lg transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {isExporting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                Export
+              </>
+            )}
           </button>
         </div>
       </div>

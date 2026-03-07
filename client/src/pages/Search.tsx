@@ -3,6 +3,8 @@ import { useSearchParams, useParams, useNavigate, Link } from 'react-router-dom'
 import { documentsService, type SearchResult } from '../api/documents';
 import type { Document } from '../types';
 import { DocumentDrawer } from '../components/documents/DocumentDrawer';
+import { BulkActionBar } from '../components/documents/BulkActionBar';
+import { ExportModal } from '../components/documents/ExportModal';
 
 export default function Search() {
   const [searchParams] = useSearchParams();
@@ -14,6 +16,8 @@ export default function Search() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
     // Don't search if query is empty or too short
@@ -107,6 +111,59 @@ export default function Search() {
     }
   };
 
+  const handleToggleSelect = (documentId: string) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(documentId)) {
+        newSet.delete(documentId);
+      } else {
+        newSet.add(documentId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(results.map((r) => r.documentId)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleExportSelected = () => {
+    setShowExportModal(true);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected documents? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await documentsService.bulkDeleteDocuments(Array.from(selectedIds));
+      
+      // Show result if some failed
+      if (result.failed.length > 0) {
+        alert(`Deleted ${result.deleted} documents. Failed to delete ${result.failed.length} documents.`);
+      }
+      
+      // Clear selection
+      setSelectedIds(new Set());
+      
+      // Remove deleted documents from results
+      setResults((prev) => prev.filter((r) => !selectedIds.has(r.documentId)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete documents');
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const allSelected = results.length > 0 && selectedIds.size === results.length;
+
   return (
     <>
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
@@ -184,34 +241,72 @@ export default function Search() {
           {/* Results List */}
           {results.length > 0 && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                Found {results.length} {results.length === 1 ? 'result' : 'results'}
-              </p>
-              {results.map((result) => (
-                <Link
-                  key={result.documentId}
-                  to={`/search/${result.documentId}${query ? `?q=${encodeURIComponent(query)}` : ''}`}
-                  className="block bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:border-primary hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-red-600 dark:text-red-400">picture_as_pdf</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-slate-900 dark:text-white mb-2 truncate">
-                        {result.filename}
-                      </h3>
-                      <div
-                        className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: result.snippet }}
-                      />
-                    </div>
-                    <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 shrink-0">
-                      arrow_forward
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      Select All
                     </span>
+                  </label>
+                  {selectedIds.size > 0 && (
+                    <span className="text-sm text-slate-500">
+                      ({selectedIds.size} selected)
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Found {results.length} {results.length === 1 ? 'result' : 'results'}
+                </p>
+              </div>
+              {results.map((result) => {
+                const isSelected = selectedIds.has(result.documentId);
+                return (
+                  <div
+                    key={result.documentId}
+                    className={`bg-white dark:bg-slate-800 border rounded-lg p-4 transition-all ${
+                      isSelected
+                        ? 'border-primary bg-blue-50 dark:bg-blue-900/10'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-primary hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(result.documentId)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <Link
+                        to={`/search/${result.documentId}${query ? `?q=${encodeURIComponent(query)}` : ''}`}
+                        className="flex items-start gap-3 flex-1 min-w-0"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-red-600 dark:text-red-400">picture_as_pdf</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-slate-900 dark:text-white mb-2 truncate">
+                            {result.filename}
+                          </h3>
+                          <div
+                            className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: result.snippet }}
+                          />
+                        </div>
+                        <span className="material-symbols-outlined text-slate-400 dark:text-slate-500 shrink-0">
+                          arrow_forward
+                        </span>
+                      </Link>
+                    </div>
                   </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -224,6 +319,21 @@ export default function Search() {
           onDelete={handleDeleteDocument}
         />
       )}
+
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          selectedCount={selectedIds.size}
+          onExport={handleExportSelected}
+          onDelete={handleDeleteSelected}
+          onClear={handleClearSelection}
+        />
+      )}
+
+      <ExportModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+        documentIds={Array.from(selectedIds)}
+      />
     </>
   );
 }

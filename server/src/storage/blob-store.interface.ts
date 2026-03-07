@@ -11,6 +11,11 @@ export interface BlobStore {
   ): Promise<{ storageKey: string }>;
 
   /**
+   * Get a PDF file as a Buffer
+   */
+  getPdf(ownerId: string, documentId: string): Promise<Buffer>;
+
+  /**
    * Get the full path to a stored file
    */
   getPath(storageKey: string): string;

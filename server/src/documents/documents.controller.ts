@@ -10,15 +10,18 @@ import {
   UseInterceptors,
   UploadedFile,
   Request,
+  Res,
   BadRequestException,
   PayloadTooLargeException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { TagsService } from '../tags/tags.service';
 import { AttachTagDto } from '../tags/dto/attach-tag.dto';
+import { ExportsService } from '../exports/exports.service';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -28,6 +31,7 @@ export class DocumentsController {
   constructor(
     private readonly documentsService: DocumentsService,
     private readonly tagsService: TagsService,
+    private readonly exportsService: ExportsService,
   ) {}
 
   /**
@@ -91,6 +95,27 @@ export class DocumentsController {
     }
 
     return this.documentsService.getDocumentText(id, userId);
+  }
+
+  /**
+   * Download a document's PDF file
+   */
+  @Get(':id/download')
+  async downloadDocument(
+    @Param('id') id: string,
+    @Request() req,
+    @Res() res: Response,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    const { buffer, filename } = await this.exportsService.downloadDocument(id, userId);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 
   /**
