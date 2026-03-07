@@ -254,7 +254,7 @@ export class DocumentsService {
   }
 
   /**
-   * Search documents by text content
+   * Search documents by filename and text content
    */
   async searchDocuments(userId: string, query: string) {
     // Return empty results for invalid queries
@@ -282,20 +282,44 @@ export class DocumentsService {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    // Filter documents that contain the query (case-insensitive)
+    // Filter documents that contain the query in filename or text content (case-insensitive)
     const matchingDocuments = allDocuments
       .filter((doc) => {
+        const filename = doc.originalFilename.toLowerCase();
         const text = doc.text?.extractedText || '';
-        return text.toLowerCase().includes(lowerQuery);
+        const lowerText = text.toLowerCase();
+        
+        return filename.includes(lowerQuery) || lowerText.includes(lowerQuery);
       })
       .slice(0, 20); // Limit to 20 results
 
     // Generate snippets for each result
-    const results = matchingDocuments.map((doc) => ({
-      documentId: doc.id,
-      filename: doc.originalFilename,
-      snippet: this.createSnippet(doc.text?.extractedText || '', query),
-    }));
+    const results = matchingDocuments.map((doc) => {
+      const filename = doc.originalFilename.toLowerCase();
+      const text = doc.text?.extractedText || '';
+      const lowerText = text.toLowerCase();
+      
+      // Check if query matches in filename
+      const matchesFilename = filename.includes(lowerQuery);
+      const matchesText = lowerText.includes(lowerQuery);
+      
+      let snippet: string;
+      if (matchesText) {
+        // If query found in text, create text snippet
+        snippet = this.createSnippet(text, query);
+      } else if (matchesFilename) {
+        // If query only found in filename, create filename snippet
+        snippet = this.createFilenameSnippet(doc.originalFilename, query);
+      } else {
+        snippet = '...';
+      }
+      
+      return {
+        documentId: doc.id,
+        filename: doc.originalFilename,
+        snippet,
+      };
+    });
 
     return { results };
   }
@@ -342,6 +366,26 @@ export class DocumentsService {
     const afterMatch = snippet.substring(matchEnd);
 
     return `${prefixEllipsis}${beforeMatch}<mark>${match}</mark>${afterMatch}${suffixEllipsis}`;
+  }
+
+  /**
+   * Create a snippet for filename matches
+   */
+  private createFilenameSnippet(filename: string, query: string): string {
+    const lowerFilename = filename.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const matchIndex = lowerFilename.indexOf(lowerQuery);
+
+    if (matchIndex === -1) {
+      return `Filename: ${filename}`;
+    }
+
+    // Highlight the match in the filename
+    const beforeMatch = filename.substring(0, matchIndex);
+    const match = filename.substring(matchIndex, matchIndex + query.length);
+    const afterMatch = filename.substring(matchIndex + query.length);
+
+    return `Filename: ${beforeMatch}<mark>${match}</mark>${afterMatch}`;
   }
 
   /**

@@ -147,7 +147,7 @@ export const documentsService = {
   },
 
   /**
-   * Search documents by text content
+   * Search documents by filename and text content
    */
   async searchDocuments(query: string): Promise<{ results: SearchResult[] }> {
     const accessToken = sessionStorage.getItem('accessToken');
