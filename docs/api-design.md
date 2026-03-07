@@ -157,7 +157,19 @@ GET /documents?tagId={tagId}
 
 ## Exports
 
+GET /documents/:id/download
+- Download single document PDF
+- Returns: PDF file with Content-Disposition: attachment
+- Validates ownership
+- Filename preserved from original upload
+
 POST /exports
+- Export multiple documents as ZIP archive
+- Body: { documentIds: string[] }
+- Validates: all documents owned by authenticated user
+- Returns: ZIP file stream with timestamp filename
+- Uses archiver library for ZIP creation
+- Continues on individual file errors
 - Export selected/filtered docs as ZIP
 
 GET /exports/:id

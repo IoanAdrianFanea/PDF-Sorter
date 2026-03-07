@@ -265,6 +265,49 @@ Notes:
 
 ---
 
+## Export Flow (Implemented)
+
+### Single Document Download
+1. User clicks Download button in document drawer (Documents or Search page)
+2. Frontend sends GET /documents/:id/download with Bearer token
+3. Backend validates authentication and document ownership
+4. Backend retrieves PDF from storage via BlobStore.getPdf()
+5. Backend streams PDF with Content-Disposition: attachment header
+6. Frontend creates blob URL and triggers browser download
+7. Browser downloads file with original filename
+8. Frontend cleans up blob URL after download
+
+### Multi-Document Export (ZIP)
+1. User selects multiple documents via checkboxes
+2. User clicks Export button in BulkActionBar
+3. ExportModal opens showing count of documents to export
+4. User confirms export
+5. Frontend sends POST /exports with { documentIds: [...] } and Bearer token
+6. Backend validates all documents belong to authenticated user
+7. Backend creates ZIP archive using archiver library
+8. Backend streams each PDF into ZIP archive
+9. Backend finalizes ZIP and streams to response
+10. Frontend receives ZIP blob and triggers download
+11. Browser downloads ZIP file with timestamp in filename
+
+### Multi-Select Support
+- Available on both Documents and Search pages
+- Checkboxes for individual selection
+- Select All checkbox for bulk selection
+- Selected items highlighted with blue background
+- BulkActionBar appears when items selected
+- Export and Delete actions work on selection
+- Selection cleared after export completes
+
+### Export Security
+- All export operations validate document ownership
+- User can only export their own documents
+- Returns 404 if any document not found or not owned
+- Continues processing on individual file errors
+- ZIP contains only successfully retrieved documents
+
+---
+
 ## Export Flow
 
 Phase 1 (sync):

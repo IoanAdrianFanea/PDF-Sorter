@@ -214,3 +214,52 @@ Tag Attachment Validation
 - Prevents user from attaching another user's tag
 - Prevents cross-user tag manipulation (IDOR protection)
 - Returns 404 if either resource not found or not owned
+
+---
+
+## Export Implementation
+
+archiver Library for ZIP Creation
+- Industry-standard ZIP creation for Node.js
+- Streaming API (efficient for large files)
+- Maximum compression level (zlib level 9)
+- Handles archive finalization automatically
+- Works well with Express response streaming
+
+BlobStore.getPdf() Method
+- Added to storage abstraction for file retrieval
+- Returns Buffer for in-memory processing
+- Keeps storage details abstracted
+- Easy to swap to S3 later (would return stream or signed URL)
+- Consistent with existing BlobStore interface
+
+Browser File Download Pattern
+- Create Blob from response
+- Create temporary object URL with URL.createObjectURL()
+- Create hidden anchor element with download attribute
+- Programmatically click anchor to trigger download
+- Clean up object URL with URL.revokeObjectURL()
+- Standard pattern for client-side downloads
+
+Content-Disposition Header
+- attachment forces download (not inline preview)
+- filename="..." preserves original filename
+- Backend sets header before streaming
+- Frontend parses header to get suggested filename
+- Falls back to generated filename if header missing
+
+Multi-Select UI Pattern
+- Checkboxes independent of row clicks
+- Row click opens detail drawer
+- Checkbox toggles selection state
+- Select All in header for convenience
+- Visual feedback with blue highlight on selected items
+- BulkActionBar slides up from bottom when items selected
+- Actions (Export, Delete) work on current selection
+
+Export on Search Page
+- Full parity with Documents page functionality
+- Checkboxes work with search results
+- Multi-select export from filtered results
+- Consistent UX across both pages
+- Selection persists during drawer open/close
