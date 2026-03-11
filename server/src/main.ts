@@ -9,7 +9,28 @@ async function bootstrap() {
 
   // Enable CORS for frontend (allows cookies to be sent)
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g., curl, Postman)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Allow localhost on any port (handles localhost, 127.0.0.1, WSL hostnames)
+      const allowedOrigins = [
+        /^http:\/\/localhost:\d+$/,
+        /^http:\/\/127\.0\.0\.1:\d+$/,
+        /^http:\/\/.+\.local:\d+$/,
+      ];
+      
+      // Check if origin matches any allowed pattern
+      const isAllowed = allowedOrigins.some(pattern => pattern.test(origin));
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
