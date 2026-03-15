@@ -1,87 +1,128 @@
-# Project Plan – PDF Sorter / Indexer
+# Project Plan – Construction Document Indexer
 
 This document outlines the scope and phases of the project.
-It focuses on delivering a secure, production-aware PDF indexing and organization tool without overengineering.
+The system focuses on building a practical internal document indexing and retrieval tool for operational teams in a construction environment.
 
 ---
 
 ## Goal
 
-Build a multi-user web app for uploading, indexing, organizing, and exporting PDFs.
+Build a multi-user application for uploading, organizing, searching, and retrieving project-related documents.
 
 The system emphasizes:
 
-- Secure multi-user boundaries
-- Full-text search
-- Tag-based organization
-- Async processing (later phase)
-- Clean architecture
-- Reproducible setup
+- fast document retrieval
+- project-based organization
+- shared company document visibility
+- role-based permissions
+- support for PDFs and images
+- clean architecture
+- reproducible setup
+
+Primary users:
+
+- procurement team
+- managers
+- quantity surveyors
+
+---
+
+## Product Direction
+
+This is not a personal document organizer.
+
+It is a shared company document system where:
+
+- documents are visible across the company by default
+- projects are the main organizing structure
+- uploadedBy is stored for traceability
+- higher-authority users can delete documents
+- the main problem being solved is slow manual lookup
 
 ---
 
 ## Core Features
 
-- Authentication (per-user isolation)
-- Upload single/multiple PDFs
-- Extract and index text
-- Document status tracking
-- Tagging + filtering
-- Download PDF
-- Export selected/filtered documents as ZIP
+- Authentication
+- Role-based access control
+- Project management
+- Upload documents (PDF + images)
+- Store metadata
+- PDF text extraction
+- Search by filename/content
+- Project-first browsing
+- Document preview
+- Download original file
+- Export selected documents as ZIP
 
 ---
 
 ## Phases
 
-Phase 1 – Secure Core MVP
+## Phase 1 – Core Operational MVP
 
-- ✅ Auth (JWT with refresh token rotation, argon2 password hashing)
-- ✅ User model with refresh token storage
-- ✅ Upload + extraction (single/multiple PDFs with pdf-parse, page count capture)
-- ✅ Document details (metadata with page count and text preview)
-- ✅ Search + snippets (contextual search with highlighting)
-- ✅ Delete (single document, bulk delete with cascade)
-- ✅ Tags (create, attach, remove, delete with cascade, filter by tag)
-- ✅ Export ZIP (single download, multi-select export on Documents and Search pages)
-
-- Basic filter/sort (optional if simple)
-
----
-
-Phase 2 – Product Dashboard
-
-- Favorites
-- Recent documents view
-- Improved filter/sort UI
-- Sidebar counters (processed / processing / failed)
-- Storage usage indicator
-- Profile/account dropdown
-- Upload progress & better loading states
+- Authentication
+- USER / ADMIN roles
+- Project entity
+- Upload documents
+- Support PDFs and images
+- Store document metadata
+- PDF text extraction
+- Search with snippets
+- Project-based document listing
+- Document preview/details
+- Download original file
+- Export selected documents as ZIP
 
 ---
 
-Phase 3 – Async Processing
+## Phase 2 – Operational Usability
 
-- API + Worker split
-- Queue for document processing
-- Background text extraction
-- Job status endpoints
+- Better sorting and filtering
+- Table-style document view
+- Improved project navigation
+- Better metadata display
+- Upload progress indicators
+- Processing/error indicators
+- Better handling of large document lists
+
+---
+
+## Phase 3 – Processing and Scalability
+
+- Async document processing
+- API + worker split
+- Queue-based extraction pipeline
 - Retry failed jobs
+- Background export jobs
+- Better performance for larger datasets
 
 ---
 
-Phase 4 – Deployment
+## Phase 4 – Deployment
 
-- S3 object storage
+- Cloud/local deployment choice based on company needs
+- Object storage abstraction (S3-compatible or local)
 - HTTPS deployment
-- Structured production logging
-- Environment configuration
+- Structured logging
+- Environment-based configuration
+- Backup/recovery planning
 
 ---
 
-## Non-Goals
+## Phase 5 – Later Extensions
+
+- OCR for scanned images/photos
+- Email attachment ingestion
+- Offline-friendly document viewing
+- Native/mobile exploration if business value is proven
+
+---
+
+## Non-Goals (Early Versions)
 
 - Microservices
 - Distributed tracing
-- Overengineered infrastructure
+- AI-heavy automation
+- Complex workflow engines
+- Native Windows/Android apps in early implementation

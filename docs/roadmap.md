@@ -1,29 +1,60 @@
 # Roadmap
 
-This document outlines the development stages of the project.
-Each phase builds toward a production-ready, deployable system while keeping scope controlled.
+This document outlines the development stages of the system.
 
 ---
 
-Phase 1 – Secure MVP
-- Auth
+## Phase 1 – Core Operational MVP
+
+- Authentication
+- USER / ADMIN roles
+- Projects
 - Upload
+- PDF text extraction
 - Search
-- Tags
-- Export
+- Preview/details
+- Download
+- Export ZIP
 
-Phase 2 – Production Layer
-- Logging
-- Validation
-- Swagger
-- Tests
+---
 
-Phase 3 – Async Architecture
+## Phase 2 – Usability Improvements
+
+- Better sorting/filtering
+- Table-style document list
+- Better metadata presentation
+- Improved project navigation
+- Upload progress
+- Processing indicators
+- Better UX for large lists
+
+---
+
+## Phase 3 – Async Architecture
+
 - Queue
 - Worker
-- Job status
+- Background extraction
+- Retry failed jobs
+- Background export jobs
+- Job status endpoints
 
-Phase 4 – Deployment
-- S3
+---
+
+## Phase 4 – Deployment
+
+- Cloud or on-prem friendly deployment
 - HTTPS
-- Cloud logging
+- Object storage
+- Logging
+- Environment configuration
+- Backup strategy
+
+---
+
+## Phase 5 – Future Enhancements
+
+- OCR for scans/photos
+- Email attachment ingestion
+- Offline document access
+- Native/mobile exploration

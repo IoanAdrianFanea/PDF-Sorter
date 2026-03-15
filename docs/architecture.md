@@ -1,7 +1,8 @@
 # Architecture Overview
 
 This document describes the high-level system structure and design principles.
-The goal is to keep the architecture modular, secure, and production-ready without unnecessary complexity.
+
+The goal is to keep the architecture modular, secure, and production-aware without unnecessary complexity.
 
 ---
 
@@ -9,15 +10,15 @@ The goal is to keep the architecture modular, secure, and production-ready witho
 
 User
   ↓
-React Frontend
+Frontend Client
   ↓
-NestJS API (with JWT Auth)
+NestJS API
   ↓
-SQLite (users + metadata + FTS)
+Database (users + projects + documents + extracted text + metadata)
   ↓
-Blob Storage (Local or S3)
+Blob Storage (Local or S3-compatible)
 
-Phase 3 adds:
+Later phases introduce:
 
 API
   ↓
@@ -25,58 +26,178 @@ Queue
   ↓
 Worker
 
+---
 
-## Authentication Layer
+## Core Domain Model
 
-Security Model:
-- Access tokens (short-lived, 15m) sent in Authorization header
-- Refresh tokens (long-lived, 7d) stored in HttpOnly cookies
-- Refresh token rotation on every refresh request
-- Passwords hashed with argon2
-- Only token hashes stored in database (never plaintext)
+Company
+  ↓
+Users
+  ↓
+Projects
+  ↓
+Documents
 
-Components:
-- AuthController: HTTP endpoints for register/login/refresh/logout/me
-- AuthService: Business logic for token generation and validation
-- UsersService: User database operations
-- JwtStrategy: Passport strategy to validate JWT tokens
-- JwtAuthGuard: Decorator to protect routes
+Important rules:
 
+- documents are company-visible by default
+- projects are the main organizational unit
+- uploadedBy is stored for traceability
+- delete/user-management actions are role-restricted
+
+---
+
+## Main Entities
+
+### User
+Represents a company user who can access the system.
+
+Key properties:
+- id
+- email
+- passwordHash
+- role
+- createdAt
+- updatedAt
+
+### Project
+Represents a construction project or site grouping.
+
+Key properties:
+- id
+- name
+- code (optional)
+- createdAt
+- updatedAt
+
+### Document
+Represents an uploaded operational document.
+
+Key properties:
+- id
+- projectId
+- uploadedById
+- originalFilename
+- mimeType
+- sizeBytes
+- storageKey
+- status
+- errorMessage
+- createdAt
+- updatedAt
+
+### DocumentText
+Stores extracted searchable text for PDFs.
+
+Key properties:
+- documentId
+- extractedText
+- pageCount
+- extractedAt
+
+---
+
+## Role Model
+
+Two initial roles are enough:
+
+### USER
+Can:
+- log in
+- upload documents
+- browse project documents
+- search documents
+- preview/download/export documents
+
+### ADMIN
+Can do everything USER can, plus:
+- delete documents
+- manage users
+- manage higher-level system actions
+
+This keeps authorization realistic without overengineering.
+
+---
 
 ## Document Processing Layer
 
-Components:
-- DocumentsController: Upload endpoint with validation
-- DocumentsService: Orchestrates upload, storage, and extraction
-- ExtractionService: PDF text extraction using pdf-parse
-- BlobStore interface: Storage abstraction
-- LocalBlobStore: Local filesystem implementation
+### Components
 
-Storage Model:
-- Directory structure: ./data/{ownerId}/{documentId}.pdf
-- Storage key format: "{ownerId}/{documentId}.pdf"
-- Easy to organize by user and migrate to S3
+**DocumentsController**
+- upload
+- list
+- get details
+- download
+- delete
+- search
 
-Status Flow:
+**DocumentsService**
+- orchestrates metadata storage
+- project association
+- file storage
+- extraction
+- search
+- deletion
+
+**ExtractionService**
+- extracts text from PDFs
+
+**BlobStore**
+- abstract storage interface
+
+**LocalBlobStore**
+- local filesystem implementation
+
+**Future S3BlobStore**
+- cloud object storage implementation
+
+---
+
+## Storage Strategy
+
+Files are stored independently from database metadata.
+
+Suggested key structure:
+
+`/data/{projectId}/{documentId}`
+
+This gives:
+
+- project-based grouping
+- easier migration to S3/object storage
+- stable storage abstraction
+
+---
+
+## Document Status Model
+
+Documents move through this state flow:
+
 UPLOADED → PROCESSING → PROCESSED | FAILED
 
-Security:
-- All endpoints protected with JwtAuthGuard
-- User ID extracted from JWT payload
-- All queries filtered by ownerId
-- IDOR protection: return 404 for other users' documents
+Later async version:
 
-Validation:
-- File type: application/pdf only
-- File size: 25MB maximum
-- Multer middleware handles multipart parsing
+UPLOADED → QUEUED → PROCESSING → PROCESSED | FAILED
 
-## Principles
+---
 
-- Modular monolith
-- Clear layering (controller → service → repository)
-- Explicit document status model
-- User-scoped data access
-- Storage behind abstraction
-- Security by default (auth on all routes)
-- Fail-safe error handling (mark FAILED, never lose uploads)
+## Security Model
+
+- all endpoints require authentication
+- authorization enforced at API layer
+- destructive actions restricted by role
+- uploadedBy stored for audit/traceability
+- documents are not private per-user records
+
+---
+
+## Architectural Principles
+
+- modular monolith
+- controller → service → persistence separation
+- project-first organization
+- shared company visibility
+- role-based destructive actions
+- storage abstraction
+- fail-safe error handling
+- production-aware, not overengineered
