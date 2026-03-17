@@ -26,7 +26,7 @@ export const documentsService = {
   /**
    * Upload a PDF file
    */
-  async uploadDocument(file: File): Promise<UploadResponse> {
+  async uploadDocument(file: File, projectId: string): Promise<UploadResponse> {
     const accessToken = sessionStorage.getItem('accessToken');
     if (!accessToken) {
       throw new Error('Not authenticated');
@@ -34,6 +34,7 @@ export const documentsService = {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('projectId', projectId);
 
     const response = await fetch(`${API_URL}/documents/upload`, {
       method: 'POST',
