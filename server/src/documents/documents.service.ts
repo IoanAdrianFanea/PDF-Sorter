@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from './extraction.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
@@ -19,14 +19,29 @@ export class DocumentsService {
   async uploadDocument(
     userId: string,
     file: Express.Multer.File,
+    projectId?: string,
   ): Promise<{ id: string; status: DocumentStatus }> {
     let documentId: string | undefined;
 
     try {
+      if (projectId) {
+        const project = await this.prisma.project.findUnique({
+          where: { id: projectId },
+          select: { id: true },
+        });
+
+        if (!project) {
+          throw new BadRequestException('Invalid projectId');
+        }
+      }
+
       // Create document record
       const document = await this.prisma.document.create({
         data: {
+          // Keep legacy ownerId during transition.
           ownerId: userId,
+          uploadedById: userId,
+          projectId: projectId ?? null,
           originalFilename: file.originalname,
           mimeType: file.mimetype,
           sizeBytes: file.size,

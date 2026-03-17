@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SearchQueryDto } from './dto/search-query.dto';
+import { UploadDocumentDto } from './dto/upload-document.dto';
 import { ExportsService } from '../exports/exports.service';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -38,6 +39,7 @@ export class DocumentsController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadDocumentDto,
     @Request() req,
   ) {
     const userId = req.user?.id || req.user?.sub;
@@ -59,7 +61,7 @@ export class DocumentsController {
       throw new BadRequestException('Only PDF files are allowed');
     }
 
-    return this.documentsService.uploadDocument(userId, file);
+    return this.documentsService.uploadDocument(userId, file, dto.projectId);
   }
 
   /**
