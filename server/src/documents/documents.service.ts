@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from './extraction.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
-import { DocumentStatus } from '@prisma/client';
+import { DocumentStatus, UserRole } from '@prisma/client';
 
 // Documents business logic
 @Injectable()
@@ -24,14 +30,42 @@ export class DocumentsService {
     let documentId: string | undefined;
 
     try {
-      if (projectId) {
-        const project = await this.prisma.project.findUnique({
-          where: { id: projectId },
-          select: { id: true },
+      if (!projectId) {
+        throw new BadRequestException('projectId is required');
+      }
+
+      const project = await this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { id: true },
+      });
+
+      if (!project) {
+        throw new BadRequestException('Invalid projectId');
+      }
+
+      // Upload policy: admins can upload anywhere, users only to assigned projects.
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.role !== UserRole.ADMIN) {
+        const membership = await this.prisma.projectMembership.findUnique({
+          where: {
+            userId_projectId: {
+              userId,
+              projectId,
+            },
+          },
+          select: { userId: true },
         });
 
-        if (!project) {
-          throw new BadRequestException('Invalid projectId');
+        if (!membership) {
+          throw new ForbiddenException('You are not assigned to this project');
         }
       }
 
@@ -41,7 +75,7 @@ export class DocumentsService {
           // Keep legacy ownerId during transition.
           ownerId: userId,
           uploadedById: userId,
-          projectId: projectId ?? null,
+          projectId,
           originalFilename: file.originalname,
           mimeType: file.mimetype,
           sizeBytes: file.size,
@@ -120,7 +154,7 @@ export class DocumentsService {
   /**
    * Get a single document by ID
    */
-  async getDocument(documentId: string, userId: string) {
+  async getDocument(documentId: string, _userId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
@@ -135,11 +169,6 @@ export class DocumentsService {
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    // Check ownership
-    if (document.ownerId !== userId) {
       throw new NotFoundException('Document not found');
     }
 
@@ -164,11 +193,10 @@ export class DocumentsService {
   }
 
   /**
-   * List all documents for current user
+   * List all documents (company-wide visibility)
    */
-  async listDocuments(userId: string) {
+  async listDocuments(_userId: string) {
     const documents = await this.prisma.document.findMany({
-      where: { ownerId: userId },
       orderBy: { uploadedAt: 'desc' },
       take: 50,
       select: {
@@ -196,7 +224,7 @@ export class DocumentsService {
   /**
    * Get extracted text for a document
    */
-  async getDocumentText(documentId: string, userId: string) {
+  async getDocumentText(documentId: string, _userId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
@@ -205,11 +233,6 @@ export class DocumentsService {
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    // Check ownership
-    if (document.ownerId !== userId) {
       throw new NotFoundException('Document not found');
     }
 
@@ -227,7 +250,7 @@ export class DocumentsService {
   /**
    * Search documents by filename and text content
    */
-  async searchDocuments(userId: string, query: string) {
+  async searchDocuments(_userId: string, query: string) {
     // Return empty results for invalid queries
     if (!query || query.trim().length < 2) {
       return { results: [] };
@@ -235,10 +258,9 @@ export class DocumentsService {
 
     const lowerQuery = query.toLowerCase();
 
-    // Get all user's documents with extracted text
+    // Company-wide visibility for search results.
     const allDocuments = await this.prisma.document.findMany({
       where: {
-        ownerId: userId,
         text: {
           isNot: null,
         },
@@ -363,16 +385,20 @@ export class DocumentsService {
    * Delete a single document
    */
   async deleteDocument(documentId: string, userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user || user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admins can delete documents');
+    }
+
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    // Check ownership
-    if (document.ownerId !== userId) {
       throw new NotFoundException('Document not found');
     }
 
