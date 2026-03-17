@@ -5,7 +5,6 @@ export interface Document {
   fileName: string;
   fileSize: string;
   status: DocumentStatus;
-  tags: string[];
   uploadDate: string;
   uploadedBy?: string;
   pageCount?: number;

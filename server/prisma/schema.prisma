@@ -20,7 +20,6 @@ model User {
   updatedAt    DateTime @updatedAt
 
   documents    Document[]
-  tags         Tag[]
   refreshTokens RefreshToken[]
 }
 
@@ -51,7 +50,6 @@ model Document {
   errorMessage     String?
 
   text             DocumentText?
-  tags             DocumentTag[]
 }
 
 model DocumentText {
@@ -60,28 +58,6 @@ model DocumentText {
   extractedText String
   pageCount     Int?
   extractedAt   DateTime @default(now())
-}
-
-model Tag {
-  id        String   @id @default(cuid())
-  ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name      String
-  createdAt DateTime @default(now())
-
-  documents DocumentTag[]
-
-  @@unique([ownerId, name])
-}
-
-model DocumentTag {
-  documentId String
-  tagId      String
-
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([documentId, tagId])
 }
 
 enum DocumentStatus {

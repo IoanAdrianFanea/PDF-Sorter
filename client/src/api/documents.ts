@@ -3,11 +3,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export type DocumentStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
 
-export interface DocumentTag {
-  id: string;
-  name: string;
-}
-
 export interface Document {
   id: string;
   originalFilename: string;
@@ -19,7 +14,6 @@ export interface Document {
   extractedAt?: string | null;
   pageCount?: number | null;
   textPreview?: string | null;
-  tags?: DocumentTag[];
 }
 
 export interface UploadResponse {

@@ -116,16 +116,6 @@ export class DocumentsService {
             pageCount: true,
           },
         },
-        tags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -144,12 +134,6 @@ export class DocumentsService {
         (document.text.extractedText.length > 150 ? '...' : '')
       : null;
 
-    // Extract tags from DocumentTag relations
-    const documentTags = document.tags.map((dt) => ({
-      id: dt.tag.id,
-      name: dt.tag.name,
-    }));
-
     return {
       id: document.id,
       originalFilename: document.originalFilename,
@@ -161,28 +145,15 @@ export class DocumentsService {
       extractedAt: document.text?.extractedAt || null,
       pageCount: document.text?.pageCount || null,
       textPreview,
-      tags: documentTags,
     };
   }
 
   /**
    * List all documents for current user
    */
-  async listDocuments(userId: string, tagId?: string) {
-    // Build where clause with optional tag filter
-    const whereClause: any = { ownerId: userId };
-
-    // If tagId is provided, filter by documents that have that tag
-    if (tagId) {
-      whereClause.tags = {
-        some: {
-          tagId: tagId,
-        },
-      };
-    }
-
+  async listDocuments(userId: string) {
     const documents = await this.prisma.document.findMany({
-      where: whereClause,
+      where: { ownerId: userId },
       orderBy: { uploadedAt: 'desc' },
       take: 50,
       select: {
@@ -193,20 +164,9 @@ export class DocumentsService {
         uploadedAt: true,
         status: true,
         errorMessage: true,
-        tags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
     });
 
-    // Map documents and include tags
     return documents.map((doc) => ({
       id: doc.id,
       originalFilename: doc.originalFilename,
@@ -215,10 +175,6 @@ export class DocumentsService {
       uploadedAt: doc.uploadedAt,
       status: doc.status,
       errorMessage: doc.errorMessage,
-      tags: doc.tags.map((dt) => ({
-        id: dt.tag.id,
-        name: dt.tag.name,
-      })),
     }));
   }
 
@@ -410,7 +366,7 @@ export class DocumentsService {
       await this.blobStore.deletePdf(document.storageKey);
     }
 
-    // Delete from database (cascade will delete DocumentText and DocumentTag)
+    // Delete from database (cascade will delete DocumentText)
     await this.prisma.document.delete({
       where: { id: documentId },
     });

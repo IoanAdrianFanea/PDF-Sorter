@@ -6,7 +6,6 @@ import { AppService } from "./app.service";
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DocumentsModule } from './documents/documents.module';
-import { TagsModule } from './tags/tags.module';
 import { ExportsModule } from './exports/exports.module';
 import path from "path";
 
@@ -20,7 +19,6 @@ import path from "path";
     AuthModule,
     UsersModule,
     DocumentsModule,
-    TagsModule,
     ExportsModule,
   ],
   controllers: [AppController],

@@ -57,18 +57,6 @@ export function DocumentTable({
     );
   };
 
-  const getTagColor = (tag: string) => {
-    const colors: Record<string, string> = {
-      Safety: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-      Audit: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-      Invoices: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-      Blueprints: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      Electrical: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-      Permits: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-    };
-    return colors[tag] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
-  };
-
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <table className="w-full text-left border-collapse">
@@ -90,9 +78,6 @@ export function DocumentTable({
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Status
-            </th>
-            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-              Tags
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Upload Date
@@ -139,18 +124,6 @@ export function DocumentTable({
                 </td>
                 <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
                   {getStatusBadge(doc.status)}
-                </td>
-                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
-                  <div className="flex flex-wrap gap-1">
-                    {doc.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTagColor(tag)}`}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                 </td>
                 <td className="py-3 px-2 text-sm text-slate-500 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
                   {doc.uploadDate}

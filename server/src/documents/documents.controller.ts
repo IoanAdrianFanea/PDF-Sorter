@@ -19,8 +19,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SearchQueryDto } from './dto/search-query.dto';
-import { TagsService } from '../tags/tags.service';
-import { AttachTagDto } from '../tags/dto/attach-tag.dto';
 import { ExportsService } from '../exports/exports.service';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -30,7 +28,6 @@ const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export class DocumentsController {
   constructor(
     private readonly documentsService: DocumentsService,
-    private readonly tagsService: TagsService,
     private readonly exportsService: ExportsService,
   ) {}
 
@@ -138,13 +135,13 @@ export class DocumentsController {
    * List all documents for current user
    */
   @Get()
-  async listDocuments(@Request() req, @Query('tagId') tagId?: string) {
+  async listDocuments(@Request() req) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
 
-    return this.documentsService.listDocuments(userId, tagId);
+    return this.documentsService.listDocuments(userId);
   }
 
   /**
@@ -186,39 +183,5 @@ export class DocumentsController {
       userId,
     );
     return result;
-  }
-
-  /**
-   * Attach a tag to a document
-   */
-  @Post(':id/tags')
-  async attachTag(
-    @Param('id') documentId: string,
-    @Body() dto: AttachTagDto,
-    @Request() req,
-  ) {
-    const userId = req.user?.id || req.user?.sub;
-    if (!userId) {
-      throw new BadRequestException('User not authenticated');
-    }
-
-    return this.tagsService.attachTagToDocument(documentId, dto.tagId, userId);
-  }
-
-  /**
-   * Remove a tag from a document
-   */
-  @Delete(':id/tags/:tagId')
-  async removeTag(
-    @Param('id') documentId: string,
-    @Param('tagId') tagId: string,
-    @Request() req,
-  ) {
-    const userId = req.user?.id || req.user?.sub;
-    if (!userId) {
-      throw new BadRequestException('User not authenticated');
-    }
-
-    return this.tagsService.removeTagFromDocument(documentId, tagId, userId);
   }
 }
