@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from './extraction.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
-import { DocumentStatus, UserRole } from '@prisma/client';
+import { DocumentStatus, UserRole, type Prisma } from '@prisma/client';
 
 // Documents business logic
 @Injectable()
@@ -69,19 +69,19 @@ export class DocumentsService {
         }
       }
 
+      const documentCreateData = {
+        uploadedById: userId,
+        projectId,
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        storageKey: '',
+        status: DocumentStatus.UPLOADED,
+      } as Prisma.DocumentUncheckedCreateInput;
+
       // Create document record
       const document = await this.prisma.document.create({
-        data: {
-          // Keep legacy ownerId during transition.
-          ownerId: userId,
-          uploadedById: userId,
-          projectId,
-          originalFilename: file.originalname,
-          mimeType: file.mimetype,
-          sizeBytes: file.size,
-          storageKey: '',
-          status: DocumentStatus.UPLOADED,
-        },
+        data: documentCreateData,
       });
 
       documentId = document.id;

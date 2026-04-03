@@ -9,19 +9,19 @@ export class LocalBlobStore implements BlobStore {
   private readonly rootDir = './data';
 
   /**
-   * Save a PDF file to disk at ./data/{ownerId}/{documentId}.pdf
+   * Save a PDF file to disk at ./data/{userId}/{documentId}.pdf
    */
   async savePdf(
-    ownerId: string,
+    userId: string,
     documentId: string,
     buffer: Buffer,
   ): Promise<{ storageKey: string }> {
-    const storageKey = `${ownerId}/${documentId}.pdf`;
-    const ownerDir = path.join(this.rootDir, ownerId);
+    const storageKey = `${userId}/${documentId}.pdf`;
+    const userDir = path.join(this.rootDir, userId);
     const filePath = path.join(this.rootDir, storageKey);
 
     // Create directory if it doesn't exist
-    await fs.mkdir(ownerDir, { recursive: true });
+    await fs.mkdir(userDir, { recursive: true });
 
     // Write file to disk
     await fs.writeFile(filePath, buffer);
@@ -32,8 +32,8 @@ export class LocalBlobStore implements BlobStore {
   /**
    * Get a PDF file as a Buffer
    */
-  async getPdf(ownerId: string, documentId: string): Promise<Buffer> {
-    const storageKey = `${ownerId}/${documentId}.pdf`;
+  async getPdf(userId: string, documentId: string): Promise<Buffer> {
+    const storageKey = `${userId}/${documentId}.pdf`;
     const filePath = path.join(this.rootDir, storageKey);
     return await fs.readFile(filePath);
   }

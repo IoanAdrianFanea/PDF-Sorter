@@ -26,7 +26,7 @@ export class ExportsService {
       throw new NotFoundException('Document not found');
     }
 
-    // Read PDF via persisted storage key to avoid ownerId path dependency.
+    // Read PDF via persisted storage key to avoid user-scope path coupling.
     const filePath = this.blobStore.getPath(document.storageKey);
     const pdfBuffer = await fs.readFile(filePath);
 

@@ -5,7 +5,7 @@ export interface BlobStore {
    * Save a PDF file
    */
   savePdf(
-    ownerId: string,
+    userId: string,
     documentId: string,
     buffer: Buffer,
   ): Promise<{ storageKey: string }>;
@@ -13,7 +13,7 @@ export interface BlobStore {
   /**
    * Get a PDF file as a Buffer
    */
-  getPdf(ownerId: string, documentId: string): Promise<Buffer>;
+  getPdf(userId: string, documentId: string): Promise<Buffer>;
 
   /**
    * Get the full path to a stored file
