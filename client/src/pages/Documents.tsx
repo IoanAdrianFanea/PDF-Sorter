@@ -270,12 +270,6 @@ export default function Documents() {
             </div>
           </div>
 
-          {selectedProject !== allProjectsLabel && (
-            <div className="rounded-lg border border-blue-200 dark:border-blue-900/30 bg-blue-50/70 dark:bg-blue-900/10 px-4 py-2 text-sm text-blue-800 dark:text-blue-200">
-              Viewing project: <span className="font-semibold">{selectedProject}</span>
-            </div>
-          )}
-
           {activeFilterTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               {activeFilterTags.map((tag) => (

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Document } from '../../types';
-import { downloadDocument } from '../../api/exports';
+import { downloadDocument, getDocumentBlob } from '../../api/exports';
 
 interface DocumentPreviewModalProps {
   document: Document;
@@ -9,6 +9,50 @@ interface DocumentPreviewModalProps {
 
 export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModalProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    let currentObjectUrl: string | null = null;
+
+    const loadPreview = async () => {
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+      setPreviewUrl(null);
+
+      try {
+        const { blob } = await getDocumentBlob(document.id);
+        currentObjectUrl = window.URL.createObjectURL(blob);
+
+        if (!isMounted) {
+          window.URL.revokeObjectURL(currentObjectUrl);
+          return;
+        }
+
+        setPreviewUrl(currentObjectUrl);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setPreviewError(error instanceof Error ? error.message : 'Failed to load preview');
+      } finally {
+        if (isMounted) {
+          setIsPreviewLoading(false);
+        }
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      isMounted = false;
+      if (currentObjectUrl) {
+        window.URL.revokeObjectURL(currentObjectUrl);
+      }
+    };
+  }, [document.id]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -62,10 +106,34 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
               </div>
             </div>
 
-            <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-10 text-center bg-slate-50/80 dark:bg-slate-800/30">
-              <span className="material-symbols-outlined text-5xl text-slate-400 mb-3">description</span>
-              <p className="text-slate-700 dark:text-slate-200 font-medium">Preview panel</p>
-              <p className="text-sm text-slate-500 mt-1">A full PDF viewer will be connected in backend integration.</p>
+            <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/30 overflow-hidden h-[60vh] min-h-[460px]">
+              {isPreviewLoading && (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
+                    <p className="text-sm text-slate-500">Loading preview...</p>
+                  </div>
+                </div>
+              )}
+
+              {!isPreviewLoading && previewError && (
+                <div className="h-full flex items-center justify-center p-6">
+                  <div className="text-center">
+                    <span className="material-symbols-outlined text-4xl text-red-500 mb-2">error</span>
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">Could not load this preview</p>
+                    <p className="text-xs text-slate-500 mt-1">{previewError}</p>
+                    <p className="text-xs text-slate-500 mt-3">Use Download PDF to open the file directly.</p>
+                  </div>
+                </div>
+              )}
+
+              {!isPreviewLoading && previewUrl && (
+                <iframe
+                  src={previewUrl}
+                  title={`Preview of ${document.fileName}`}
+                  className="w-full h-full"
+                />
+              )}
             </div>
           </div>
 
