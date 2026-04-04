@@ -5,15 +5,30 @@ export type DocumentStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'PROCESSED' 
 
 export interface Document {
   id: string;
+  projectId?: string;
+  projectName?: string;
   originalFilename: string;
   mimeType: string;
   sizeBytes: number;
   uploadedAt: string;
   status: DocumentStatus;
   errorMessage?: string | null;
+  uploadedByEmail?: string;
   extractedAt?: string | null;
   pageCount?: number | null;
   textPreview?: string | null;
+}
+
+export interface ListDocumentsFilters {
+  projectId?: string;
+  mainFilter?: string;
+  supplier?: string;
+  materialType?: string;
+  quantity?: string;
+  orderNumber?: string;
+  deliveryDateFrom?: string;
+  deliveryDateTo?: string;
+  sortBy?: 'upload-newest' | 'upload-oldest' | 'name-asc' | 'name-desc' | 'status';
 }
 
 export interface UploadResponse {
@@ -66,13 +81,26 @@ export const documentsService = {
   /**
    * Get all documents for current user
    */
-  async listDocuments(): Promise<Document[]> {
+  async listDocuments(filters?: ListDocumentsFilters): Promise<Document[]> {
     const accessToken = sessionStorage.getItem('accessToken');
     if (!accessToken) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/documents`, {
+    const params = new URLSearchParams();
+    if (filters) {
+      const entries = Object.entries(filters) as Array<[keyof ListDocumentsFilters, string | undefined]>;
+      for (const [key, value] of entries) {
+        if (value && value.trim() !== '') {
+          params.set(key, value);
+        }
+      }
+    }
+
+    const queryString = params.toString();
+    const url = queryString ? `${API_URL}/documents?${queryString}` : `${API_URL}/documents`;
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,

@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
+import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { ExportsService } from '../exports/exports.service';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -137,13 +138,16 @@ export class DocumentsController {
    * List all documents for current user
    */
   @Get()
-  async listDocuments(@Request() req) {
+  async listDocuments(
+    @Request() req,
+    @Query() query: ListDocumentsQueryDto,
+  ) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
 
-    return this.documentsService.listDocuments(userId);
+    return this.documentsService.listDocuments(userId, query);
   }
 
   /**

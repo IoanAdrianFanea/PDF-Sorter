@@ -9,6 +9,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from './extraction.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
 import { DocumentStatus, UserRole, type Prisma } from '@prisma/client';
+import {
+  type DocumentsSortBy,
+  type ListDocumentsQueryDto,
+} from './dto/list-documents-query.dto';
 
 // Documents business logic
 @Injectable()
@@ -193,32 +197,146 @@ export class DocumentsService {
   }
 
   /**
-   * List all documents (company-wide visibility)
+   * List all documents with optional filters/sorting
    */
-  async listDocuments(_userId: string) {
+  async listDocuments(userId: string, query: ListDocumentsQueryDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const whereClauses: Prisma.DocumentWhereInput[] = [];
+
+    // Project membership boundary for non-admin users.
+    if (user.role !== UserRole.ADMIN) {
+      whereClauses.push({
+        project: {
+          memberships: {
+            some: {
+              userId,
+            },
+          },
+        },
+      });
+    }
+
+    if (query.projectId) {
+      whereClauses.push({ projectId: query.projectId });
+    }
+
+    const textTerms = [
+      query.mainFilter,
+      query.supplier,
+      query.materialType,
+      query.quantity,
+      query.orderNumber,
+    ]
+      .map((term) => term?.trim())
+      .filter((term): term is string => Boolean(term));
+
+    for (const term of textTerms) {
+      whereClauses.push({
+        OR: [
+          {
+            originalFilename: {
+              contains: term,
+            },
+          },
+          {
+            text: {
+              is: {
+                extractedText: {
+                  contains: term,
+                },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    // Until a dedicated deliveryDate field exists, date range applies to upload date.
+    const uploadDateFilter: Prisma.DateTimeFilter = {};
+    if (query.deliveryDateFrom) {
+      const fromDate = new Date(query.deliveryDateFrom);
+      if (!Number.isNaN(fromDate.getTime())) {
+        uploadDateFilter.gte = fromDate;
+      }
+    }
+    if (query.deliveryDateTo) {
+      const toDate = new Date(query.deliveryDateTo);
+      if (!Number.isNaN(toDate.getTime())) {
+        toDate.setHours(23, 59, 59, 999);
+        uploadDateFilter.lte = toDate;
+      }
+    }
+    if (Object.keys(uploadDateFilter).length > 0) {
+      whereClauses.push({ uploadedAt: uploadDateFilter });
+    }
+
+    const where: Prisma.DocumentWhereInput =
+      whereClauses.length > 0 ? { AND: whereClauses } : {};
+
+    const orderBy = this.getDocumentsOrderBy(query.sortBy);
+
     const documents = await this.prisma.document.findMany({
-      orderBy: { uploadedAt: 'desc' },
+      where,
+      orderBy,
       take: 50,
       select: {
         id: true,
+        projectId: true,
         originalFilename: true,
         mimeType: true,
         sizeBytes: true,
         uploadedAt: true,
         status: true,
         errorMessage: true,
+        uploadedBy: {
+          select: {
+            email: true,
+          },
+        },
+        project: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
     return documents.map((doc) => ({
       id: doc.id,
+      projectId: doc.projectId,
+      projectName: doc.project.name,
       originalFilename: doc.originalFilename,
       mimeType: doc.mimeType,
       sizeBytes: doc.sizeBytes,
       uploadedAt: doc.uploadedAt,
       status: doc.status,
       errorMessage: doc.errorMessage,
+      uploadedByEmail: doc.uploadedBy.email,
     }));
+  }
+
+  private getDocumentsOrderBy(sortBy?: DocumentsSortBy): Prisma.DocumentOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'upload-oldest':
+        return [{ uploadedAt: 'asc' }];
+      case 'name-asc':
+        return [{ originalFilename: 'asc' }];
+      case 'name-desc':
+        return [{ originalFilename: 'desc' }];
+      case 'status':
+        return [{ status: 'asc' }, { uploadedAt: 'desc' }];
+      case 'upload-newest':
+      default:
+        return [{ uploadedAt: 'desc' }];
+    }
   }
 
   /**

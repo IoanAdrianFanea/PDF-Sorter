@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Document } from '../types';
 import { documentsService } from '../api/documents';
 import type { Document as ApiDocument } from '../api/documents';
+import { projectsService, type Project } from '../api/projects';
 import { downloadDocument } from '../api/exports';
 import { DocumentTable } from '../components/documents/DocumentTable';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
@@ -28,7 +29,7 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
     fileSize: formatFileSize(apiDoc.sizeBytes),
     status: apiDoc.status,
     uploadDate: formatDate(apiDoc.uploadedAt),
-    uploadedBy: 'You',
+    uploadedBy: apiDoc.uploadedByEmail || 'Unknown',
     pageCount: apiDoc.pageCount || undefined,
     extractedText: apiDoc.textPreview || undefined,
   };
@@ -44,13 +45,20 @@ export default function Documents() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExportModal, setShowExportModal] = useState(false);
 
+  const allProjectsValue = 'all';
   const allProjectsLabel = 'All Projects';
   const projectStorageKey = 'documents:selectedProject';
-  const [selectedProject, setSelectedProject] = useState<string>(() => {
-    return sessionStorage.getItem(projectStorageKey) || allProjectsLabel;
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    const storedValue = sessionStorage.getItem(projectStorageKey);
+    if (!storedValue || storedValue === allProjectsLabel) {
+      return allProjectsValue;
+    }
+    return storedValue;
   });
+  const [projects, setProjects] = useState<Project[]>([]);
   const [sortBy, setSortBy] = useState<'upload-newest' | 'upload-oldest' | 'name-asc' | 'name-desc' | 'status'>('upload-newest');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [mainFilter, setMainFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
   const [materialTypeFilter, setMaterialTypeFilter] = useState('');
   const [quantityFilter, setQuantityFilter] = useState('');
@@ -58,19 +66,40 @@ export default function Documents() {
   const [deliveryFromFilter, setDeliveryFromFilter] = useState('');
   const [deliveryToFilter, setDeliveryToFilter] = useState('');
 
-  const projectOptions = [allProjectsLabel, 'North Tower Build', 'Highway Bridge Lot 7', 'Warehouse Extension'];
   const materialTypeOptions = ['', 'Concrete', 'Steel', 'Lumber', 'Electrical', 'Plumbing'];
 
-  // Fetch documents on mount
   useEffect(() => {
-    sessionStorage.setItem(projectStorageKey, selectedProject);
-  }, [selectedProject]);
+    sessionStorage.setItem(projectStorageKey, selectedProjectId);
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectsService.listProjects();
+        setProjects(data);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+
+    fetchProjects();
+  }, []);
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         setIsLoading(true);
-        const apiDocuments = await documentsService.listDocuments();
+        const apiDocuments = await documentsService.listDocuments({
+          projectId: selectedProjectId !== allProjectsValue ? selectedProjectId : undefined,
+          mainFilter,
+          supplier: supplierFilter,
+          materialType: materialTypeFilter,
+          quantity: quantityFilter,
+          orderNumber: orderNumberFilter,
+          deliveryDateFrom: deliveryFromFilter,
+          deliveryDateTo: deliveryToFilter,
+          sortBy,
+        });
         const convertedDocuments = apiDocuments.map(convertApiDocument);
         setDocuments(convertedDocuments);
         setError('');
@@ -83,7 +112,17 @@ export default function Documents() {
     };
 
     fetchDocuments();
-  }, []);
+  }, [
+    selectedProjectId,
+    mainFilter,
+    supplierFilter,
+    materialTypeFilter,
+    quantityFilter,
+    orderNumberFilter,
+    deliveryFromFilter,
+    deliveryToFilter,
+    sortBy,
+  ]);
 
   // Fetch selected document details when ID is in URL
   useEffect(() => {
@@ -112,26 +151,16 @@ export default function Documents() {
     fetchDocument();
   }, [id, documents]);
 
-  const sortedDocuments = useMemo(() => {
-    const copy = [...documents];
-
-    switch (sortBy) {
-      case 'upload-oldest':
-        return copy.sort((a, b) => new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime());
-      case 'name-asc':
-        return copy.sort((a, b) => a.fileName.localeCompare(b.fileName));
-      case 'name-desc':
-        return copy.sort((a, b) => b.fileName.localeCompare(a.fileName));
-      case 'status':
-        return copy.sort((a, b) => a.status.localeCompare(b.status));
-      case 'upload-newest':
-      default:
-        return copy.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  const selectedProjectName = useMemo(() => {
+    if (selectedProjectId === allProjectsValue) {
+      return allProjectsLabel;
     }
-  }, [documents, sortBy]);
+    return projects.find((project) => project.id === selectedProjectId)?.name || allProjectsLabel;
+  }, [projects, selectedProjectId]);
 
   const activeFilterTags = [
-    selectedProject !== allProjectsLabel ? { key: 'project', label: `Project: ${selectedProject}` } : null,
+    selectedProjectId !== allProjectsValue ? { key: 'project', label: `Project: ${selectedProjectName}` } : null,
+    mainFilter ? { key: 'mainFilter', label: `Main: ${mainFilter}` } : null,
     supplierFilter ? { key: 'supplier', label: `Supplier: ${supplierFilter}` } : null,
     materialTypeFilter ? { key: 'materialType', label: `Material Type: ${materialTypeFilter}` } : null,
     quantityFilter ? { key: 'quantity', label: `Quantity: ${quantityFilter}` } : null,
@@ -212,7 +241,8 @@ export default function Documents() {
   };
 
   const removeFilterTag = (key: string) => {
-    if (key === 'project') setSelectedProject(allProjectsLabel);
+    if (key === 'project') setSelectedProjectId(allProjectsValue);
+    if (key === 'mainFilter') setMainFilter('');
     if (key === 'supplier') setSupplierFilter('');
     if (key === 'materialType') setMaterialTypeFilter('');
     if (key === 'quantity') setQuantityFilter('');
@@ -231,13 +261,14 @@ export default function Documents() {
             <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Project</label>
               <select
-                value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="h-10 min-w-56 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm text-slate-700 dark:text-slate-200"
               >
-                {projectOptions.map((project) => (
-                  <option key={project} value={project}>
-                    {project}
+                <option value={allProjectsValue}>{allProjectsLabel}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
                   </option>
                 ))}
               </select>
@@ -266,7 +297,7 @@ export default function Documents() {
             </div>
 
             <div className="text-sm text-slate-500">
-              Showing 1-{sortedDocuments.length} of {sortedDocuments.length}
+              Showing 1-{documents.length} of {documents.length}
             </div>
           </div>
 
@@ -290,15 +321,27 @@ export default function Documents() {
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Main Filter</label>
+                  <input
+                    type="text"
+                    value={mainFilter}
+                    onChange={(e) => setMainFilter(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm"
+                    placeholder="Search filename or document text"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Project</label>
                   <select
-                    value={selectedProject}
-                    onChange={(e) => setSelectedProject(e.target.value)}
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
                     className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm"
                   >
-                    {projectOptions.map((project) => (
-                      <option key={`filter-${project}`} value={project}>
-                        {project}
+                    <option value={allProjectsValue}>{allProjectsLabel}</option>
+                    {projects.map((project) => (
+                      <option key={`filter-${project.id}`} value={project.id}>
+                        {project.name}
                       </option>
                     ))}
                   </select>
@@ -376,11 +419,12 @@ export default function Documents() {
               </div>
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Filter inputs are UI-only for now. Data filtering will be connected later.</p>
+                <p className="text-xs text-slate-500">Filters are applied server-side and reflect uploaded documents.</p>
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedProject(allProjectsLabel);
+                    setSelectedProjectId(allProjectsValue);
+                    setMainFilter('');
                     setSupplierFilter('');
                     setMaterialTypeFilter('');
                     setQuantityFilter('');
@@ -412,7 +456,7 @@ export default function Documents() {
               <p className="text-sm text-slate-500">{error}</p>
             </div>
           </div>
-        ) : sortedDocuments.length === 0 ? (
+        ) : documents.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-4">folder_open</span>
@@ -428,7 +472,7 @@ export default function Documents() {
           </div>
         ) : (
           <DocumentTable
-            documents={sortedDocuments}
+            documents={documents}
             selectedDocumentId={selectedDocument?.id || null}
             selectedIds={selectedIds}
             onSelectDocument={handleSelectDocument}
