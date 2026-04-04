@@ -5,14 +5,18 @@ export interface Project {
   name: string;
 }
 
+export type ProjectsScope = 'all' | 'uploadable';
+
 export const projectsService = {
-  async listProjects(): Promise<Project[]> {
+  async listProjects(scope: ProjectsScope = 'all'): Promise<Project[]> {
     const accessToken = sessionStorage.getItem('accessToken');
     if (!accessToken) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/projects`, {
+    const params = new URLSearchParams({ scope });
+
+    const response = await fetch(`${API_URL}/projects?${params.toString()}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,

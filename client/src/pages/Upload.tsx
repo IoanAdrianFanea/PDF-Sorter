@@ -25,7 +25,7 @@ export default function Upload() {
     const loadProjects = async () => {
       setIsLoadingProjects(true);
       try {
-        const data = await projectsService.listProjects();
+        const data = await projectsService.listProjects('uploadable');
         setProjects(data);
         setProjectsError(null);
         if (data.length > 0) {

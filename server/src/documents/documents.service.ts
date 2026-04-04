@@ -211,19 +211,6 @@ export class DocumentsService {
 
     const whereClauses: Prisma.DocumentWhereInput[] = [];
 
-    // Project membership boundary for non-admin users.
-    if (user.role !== UserRole.ADMIN) {
-      whereClauses.push({
-        project: {
-          memberships: {
-            some: {
-              userId,
-            },
-          },
-        },
-      });
-    }
-
     if (query.projectId) {
       whereClauses.push({ projectId: query.projectId });
     }
