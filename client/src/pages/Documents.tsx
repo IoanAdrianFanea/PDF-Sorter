@@ -219,18 +219,22 @@ export default function Documents() {
     }
 
     try {
-      const result = await documentsService.bulkDeleteDocuments(Array.from(selectedIds));
+      const selectedIdsSnapshot = new Set(selectedIds);
+      const result = await documentsService.bulkDeleteDocuments(Array.from(selectedIdsSnapshot));
       
       // Show result if some failed
       if (result.failed.length > 0) {
         alert(`Deleted ${result.deleted} documents. Failed to delete ${result.failed.length} documents.`);
       }
+
+      const failedSet = new Set(result.failed);
+      const deletedIds = Array.from(selectedIdsSnapshot).filter((id) => !failedSet.has(id));
       
       // Clear selection
       setSelectedIds(new Set());
       
-      // Refresh documents list
-      setDocuments((prev) => prev.filter((d) => !selectedIds.has(d.id)));
+      // Update list with only successfully deleted documents removed.
+      setDocuments((prev) => prev.filter((d) => !deletedIds.includes(d.id)));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete documents');
     }
