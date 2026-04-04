@@ -14,7 +14,6 @@ export function AppShell({ children }: AppShellProps) {
   
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
-  const isSearchPage = location.pathname.startsWith('/search');
 
   // Handle search form submission
   const handleSearch = (e: React.FormEvent) => {
@@ -98,17 +97,6 @@ export function AppShell({ children }: AppShellProps) {
               >
                 <span className="material-symbols-outlined text-[20px]">grid_view</span>
                 All Documents
-              </Link>
-              <Link
-                className={`flex items-center gap-3 px-2 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isSearchPage
-                    ? 'bg-white dark:bg-slate-800 text-primary shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-                to="/search"
-              >
-                <span className="material-symbols-outlined text-[20px]">search</span>
-                Search
               </Link>
               <button
                 onClick={() => setComingSoonFeature({ feature: 'Favorites', phase: 'Phase 2' })}

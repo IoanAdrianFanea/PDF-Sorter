@@ -7,6 +7,7 @@ interface DocumentTableProps {
   onSelectDocument: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onSelectAll: (checked: boolean) => void;
+  onDownloadDocument: (id: string) => void;
 }
 
 export function DocumentTable({
@@ -16,6 +17,7 @@ export function DocumentTable({
   onSelectDocument,
   onToggleSelect,
   onSelectAll,
+  onDownloadDocument,
 }: DocumentTableProps) {
   const allSelected = documents.length > 0 && documents.every((doc) => selectedIds.has(doc.id));
   const someSelected = documents.some((doc) => selectedIds.has(doc.id)) && !allSelected;
@@ -74,15 +76,18 @@ export function DocumentTable({
               />
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-              Filename
+              Document
+            </th>
+            <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+              Uploaded By
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Status
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-              Upload Date
+              Date Uploaded
             </th>
-            <th className="py-3 px-6 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+            <th className="py-3 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Actions
             </th>
           </tr>
@@ -95,7 +100,7 @@ export function DocumentTable({
             return (
               <tr
                 key={doc.id}
-                className={`group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
+                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
                   isDrawerOpen
                     ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-primary'
                     : isSelected
@@ -111,39 +116,51 @@ export function DocumentTable({
                     onChange={() => onToggleSelect(doc.id)}
                   />
                 </td>
-                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                <td className="py-3 px-2">
                   <div className="flex items-center gap-3">
                     <div className="shrink-0 p-2 bg-red-100 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
                       <span className="material-symbols-outlined text-[20px] block">picture_as_pdf</span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">{doc.fileName}</p>
+                      <button
+                        type="button"
+                        onClick={() => onSelectDocument(doc.id)}
+                        className="text-sm font-medium text-slate-900 dark:text-white hover:text-primary dark:hover:text-primary text-left"
+                      >
+                        {doc.fileName}
+                      </button>
                       <p className="text-xs text-slate-500">{doc.fileSize}</p>
                     </div>
                   </div>
                 </td>
+                <td className="py-3 px-2 text-sm text-slate-600 dark:text-slate-300">{doc.uploadedBy || 'Unknown'}</td>
                 <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
                   {getStatusBadge(doc.status)}
                 </td>
                 <td className="py-3 px-2 text-sm text-slate-500 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
                   {doc.uploadDate}
                 </td>
-                <td className="py-3 px-6 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <td className="py-3 px-6">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectDocument(doc.id);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      <span className="material-symbols-outlined text-[16px]">visibility</span>
+                      Preview
                     </button>
                     <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownloadDocument(doc.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px]">download</span>
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      Download
                     </button>
                   </div>
                 </td>
