@@ -69,7 +69,14 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
     <>
       <div className="fixed inset-0 bg-slate-900/40 z-40" onClick={onClose} />
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            onClose();
+          }
+        }}
+      >
         <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 min-w-0">
