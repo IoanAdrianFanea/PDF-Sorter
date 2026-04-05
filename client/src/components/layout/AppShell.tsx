@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ComingSoonToast } from '../common/ComingSoonToast';
+import { ProfileSettingsModal } from './ProfileSettingsModal';
 
 interface AppShellProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [comingSoonFeature, setComingSoonFeature] = useState<{ feature: string; phase: string } | null>(null);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
@@ -70,14 +72,11 @@ export function AppShell({ children }: AppShellProps) {
             <span className="material-symbols-outlined">notifications</span>
           </button>
           <button
-            onClick={() => setComingSoonFeature({ feature: 'Profile & Account Settings', phase: 'Phase 2' })}
-            className="size-9 rounded-full bg-slate-200 overflow-hidden border border-slate-200 dark:border-slate-700 relative hover:ring-2 hover:ring-primary transition-all"
+            onClick={() => setIsProfileSettingsOpen(true)}
+            className="h-9 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary transition-colors inline-flex items-center gap-1.5"
           >
-            <img
-              alt="User"
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhXkeqG9nMzUUJF41F_-J5GmPSntziwNSCZeZiVE6rY4AHpWvGZjQEq11sifUOKz4nNGvIWq05WaW5v1m1q5hbwm7VKtfY6oiqm8geQ3Sxl0UpbryjtuD4rGnGNno3uppzOCJgcl2Hx7CKNo0W4I3w6bVZ8Y2in7VBFQ5w4YSI1UxjB4gJn1BRv0Q9xUxoGoBhmxDMy5-7jIjlDOhdFHeJkCPmXiQknCurIfE1JXVNaCxu4m3YbKuAS_vzf9ryK61EBBOwNPBAKxE"
-            />
+            <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
+            <span className="text-xs font-semibold">Account</span>
           </button>
         </div>
       </header>
@@ -211,6 +210,11 @@ export function AppShell({ children }: AppShellProps) {
         onClose={() => setComingSoonFeature(null)}
         feature={comingSoonFeature?.feature || ''}
         phase={comingSoonFeature?.phase || ''}
+      />
+
+      <ProfileSettingsModal
+        isOpen={isProfileSettingsOpen}
+        onClose={() => setIsProfileSettingsOpen(false)}
       />
     </>
   );
