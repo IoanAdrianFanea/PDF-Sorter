@@ -2,17 +2,20 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Res,
   Req,
   UseGuards,
   HttpCode,
   HttpStatus,
+  NotImplementedException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ProfileDto } from './dto/UpdateMe.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { User } from '@prisma/client';
 
@@ -104,6 +107,13 @@ export class AuthController {
     const { passwordHash, ...userWithoutPassword } = req.user;
     return userWithoutPassword;
   }
+
+  // PATCH /auth/me - Update current authenticated user profile
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateMe(@Req() req: RequestWithUser, @Body() dto: ProfileDto) {
+    return this.authService.updateMe(req.user.id, dto);
+  } 
 
   // Set refresh token in HttpOnly cookie (secure, not accessible via JavaScript)
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
