@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { authService } from '../../api/auth';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -7,9 +8,177 @@ interface ProfileSettingsModalProps {
 
 type SettingsTab = 'profile' | 'security';
 
+interface ProfileFormState {
+  fullName: string;
+  language: string;
+  timezone: string;
+}
+
+const defaultProfile: ProfileFormState = {
+  fullName: '',
+  language: 'en-US',
+  timezone: 'UTC',
+};
+
+const supportedLanguages = ['en-US', 'en-GB', 'de-DE'];
+const supportedTimezones = ['America/Los_Angeles', 'UTC', 'Europe/Berlin'];
+
+function normalizeLanguage(value: string | null): string {
+  if (!value) {
+    return defaultProfile.language;
+  }
+
+  const normalized = value.trim();
+  if (normalized === 'en') {
+    return 'en-US';
+  }
+  if (normalized === 'de') {
+    return 'de-DE';
+  }
+  if (supportedLanguages.includes(normalized)) {
+    return normalized;
+  }
+
+  return defaultProfile.language;
+}
+
+function normalizeTimezone(value: string | null): string {
+  if (!value) {
+    return defaultProfile.timezone;
+  }
+
+  const normalized = value.trim();
+  if (supportedTimezones.includes(normalized)) {
+    return normalized;
+  }
+
+  return defaultProfile.timezone;
+}
+
 export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'USER' | 'ADMIN'>('USER');
+  const [language, setLanguage] = useState('en-US');
+  const [timezone, setTimezone] = useState('UTC');
+  const [initialProfile, setInitialProfile] = useState<ProfileFormState>(defaultProfile);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
   const isProfileTab = activeTab === 'profile';
+  const hasUnsavedChanges =
+    fullName !== initialProfile.fullName ||
+    language !== initialProfile.language ||
+    timezone !== initialProfile.timezone;
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      setProfileError('You are not authenticated. Please sign in again.');
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      setIsLoadingProfile(true);
+      setProfileError('');
+      setProfileSuccess('');
+
+      try {
+        const user = await authService.getMe(accessToken);
+        if (cancelled) {
+          return;
+        }
+
+        const normalizedProfile: ProfileFormState = {
+          fullName: user.fullName ?? '',
+          language: normalizeLanguage(user.language),
+          timezone: normalizeTimezone(user.timezone),
+        };
+
+        setInitialProfile(normalizedProfile);
+        setFullName(normalizedProfile.fullName);
+        setEmail(user.email);
+        setRole(user.role);
+        setLanguage(normalizedProfile.language);
+        setTimezone(normalizedProfile.timezone);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setProfileError(error instanceof Error ? error.message : 'Failed to load your profile');
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const handleSaveProfile = async () => {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      setProfileError('You are not authenticated. Please sign in again.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError('');
+    setProfileSuccess('');
+
+    try {
+      const payload: { fullName?: string; language?: string; timezone?: string } = {};
+      const trimmedFullName = fullName.trim();
+
+      if (trimmedFullName !== initialProfile.fullName) {
+        payload.fullName = trimmedFullName;
+      }
+      if (language !== initialProfile.language) {
+        payload.language = language;
+      }
+      if (timezone !== initialProfile.timezone) {
+        payload.timezone = timezone;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setProfileSuccess('No changes to save.');
+        return;
+      }
+
+      const updatedUser = await authService.updateMe(accessToken, payload);
+
+      const normalizedProfile: ProfileFormState = {
+        fullName: updatedUser.fullName ?? '',
+        language: normalizeLanguage(updatedUser.language),
+        timezone: normalizeTimezone(updatedUser.timezone),
+      };
+
+      setInitialProfile(normalizedProfile);
+      setFullName(normalizedProfile.fullName);
+      setEmail(updatedUser.email);
+      setRole(updatedUser.role);
+      setLanguage(normalizedProfile.language);
+      setTimezone(normalizedProfile.timezone);
+      setProfileSuccess('Profile saved successfully.');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Failed to save profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   if (!isOpen) {
     return null;
@@ -85,7 +254,11 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                   <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
                   <input
                     type="text"
-                    defaultValue="Alexander Morgan"
+                    value={fullName}
+                    onChange={(event) => {
+                      setFullName(event.target.value);
+                      setProfileSuccess('');
+                    }}
                     className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm text-slate-900 dark:text-slate-100"
                   />
                 </div>
@@ -95,7 +268,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                   <div className="relative">
                     <input
                       type="email"
-                      defaultValue="a.morgan@docindex.com"
+                      value={email}
                       disabled
                       className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-4 text-sm text-slate-400 dark:text-slate-500"
                     />
@@ -108,7 +281,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                   <label className="block text-xs font-medium text-slate-500 mb-1">System Role</label>
                   <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                     <span className="material-symbols-outlined text-[14px]">verified_user</span>
-                    Admin
+                    {role}
                   </div>
                 </div>
               </div>
@@ -118,21 +291,39 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Language</label>
-                    <select className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm">
-                      <option>English (United States)</option>
-                      <option>English (United Kingdom)</option>
-                      <option>Deutsch</option>
+                    <select
+                      value={language}
+                      onChange={(event) => {
+                        setLanguage(event.target.value);
+                        setProfileSuccess('');
+                      }}
+                      className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
+                    >
+                      <option value="en-US">English (United States)</option>
+                      <option value="en-GB">English (United Kingdom)</option>
+                      <option value="de-DE">Deutsch</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Timezone</label>
-                    <select className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm">
-                      <option>(GMT-08:00) Pacific Time</option>
-                      <option>(GMT+00:00) UTC</option>
-                      <option>(GMT+01:00) Central Europe</option>
+                    <select
+                      value={timezone}
+                      onChange={(event) => {
+                        setTimezone(event.target.value);
+                        setProfileSuccess('');
+                      }}
+                      className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
+                    >
+                      <option value="America/Los_Angeles">(GMT-08:00) Pacific Time</option>
+                      <option value="UTC">(GMT+00:00) UTC</option>
+                      <option value="Europe/Berlin">(GMT+01:00) Central Europe</option>
                     </select>
                   </div>
                 </div>
+
+                {isLoadingProfile && <p className="text-xs text-slate-500">Loading profile...</p>}
+                {profileError && <p className="text-xs text-red-600">{profileError}</p>}
+                {profileSuccess && <p className="text-xs text-emerald-600">{profileSuccess}</p>}
               </section>
             </section>
           )}
@@ -241,8 +432,13 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
               >
                 Discard
               </button>
-              <button type="button" className="px-5 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold">
-                Save changes
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile || isLoadingProfile || !hasUnsavedChanges}
+                className="px-5 py-2 rounded-lg bg-primary hover:bg-blue-600 disabled:bg-blue-400 text-white text-sm font-semibold"
+              >
+                {isSavingProfile ? 'Saving...' : 'Save changes'}
               </button>
             </div>
           </footer>
