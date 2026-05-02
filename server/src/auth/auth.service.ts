@@ -12,6 +12,7 @@ import * as argon2 from 'argon2';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { User } from '@prisma/client';
+import { ProfileDto } from './dto/UpdateMe.dto';
 
 // JWT token payload structure
 interface JwtPayload {
@@ -215,5 +216,45 @@ export class AuthService {
       default:
         throw new BadRequestException('Invalid expiration format');
     }
+  }
+
+  async updateMe(userId: string, dto: ProfileDto): Promise<Omit<User, 'passwordHash'>> {
+    const existingUser = await this.usersService.findById(userId);
+    if (!existingUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const data: {
+      fullName?: string | null;
+      language?: string;
+      timezone?: string;
+    } = {};
+
+    if (dto.fullName !== undefined) {
+      const trimmed = dto.fullName.trim();
+      data.fullName = trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (dto.language !== undefined) {
+      data.language = dto.language.trim();
+    }
+
+    if (dto.timezone !== undefined) {
+      data.timezone = dto.timezone.trim();
+    }
+
+  // If PATCH body is empty, return current profile safely.
+    if (Object.keys(data).length === 0) {
+      const { passwordHash, ...safeUser } = existingUser;
+      return safeUser;
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+
+    const { passwordHash, ...safeUser } = updatedUser;
+    return safeUser;
   }
 }

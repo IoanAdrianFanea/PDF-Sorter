@@ -13,7 +13,17 @@ export interface RegisterResponse {
 export interface User {
   id: string;
   email: string;
+  role: 'USER' | 'ADMIN';
+  fullName: string | null;
+  language: string | null;
+  timezone: string | null;
   createdAt: string;
+}
+
+export interface UpdateMePayload {
+  fullName?: string;
+  language?: string;
+  timezone?: string;
 }
 
 // Auth service
@@ -104,5 +114,30 @@ export const authService = {
     if (!response.ok) {
       throw new Error('Logout failed');
     }
+  },
+
+  /**  
+   * PATCH /auth/me - Update user profile information
+   * @throws Error with message if update fails
+   */
+  async updateMe(accessToken: string, profileData: UpdateMePayload): Promise<User> {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+      body: JSON.stringify(profileData),
+    });
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ message: 'Failed to update user information' }));
+      throw new Error(error.message || 'Failed to update user information');
+    }
+
+    return response.json();
   },
 };

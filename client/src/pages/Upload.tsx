@@ -1,6 +1,7 @@
-import { useState, useRef, type DragEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type DragEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { documentsService } from '../api/documents';
+import { projectsService, type Project } from '../api/projects';
 
 // Tracks file upload state
 interface PendingFile {
@@ -14,7 +15,33 @@ export default function Upload() {
   const navigate = useNavigate();
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      setIsLoadingProjects(true);
+      try {
+        const data = await projectsService.listProjects('uploadable');
+        setProjects(data);
+        setProjectsError(null);
+        if (data.length > 0) {
+          setSelectedProjectId(data[0].id);
+        }
+      } catch (error) {
+        setProjectsError(
+          error instanceof Error ? error.message : 'Failed to load projects',
+        );
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+
+    loadProjects();
+  }, []);
 
   // Handle drag over drop zone
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -92,6 +119,11 @@ export default function Upload() {
       return;
     }
 
+    if (!selectedProjectId) {
+      alert('Select a project before uploading');
+      return;
+    }
+
     // Upload files sequentially
     for (const pendingFile of filesToUpload) {
       setPendingFiles((prev) =>
@@ -101,7 +133,7 @@ export default function Upload() {
       );
 
       try {
-        await documentsService.uploadDocument(pendingFile.file);
+        await documentsService.uploadDocument(pendingFile.file, selectedProjectId);
 
         setPendingFiles((prev) =>
           prev.map((f) =>
@@ -175,6 +207,33 @@ export default function Upload() {
           </div>
 
           {/* Drop Zone */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Project
+            </label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              disabled={isLoadingProjects || projects.length === 0}
+              className="w-full max-w-md rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            >
+              {isLoadingProjects ? (
+                <option value="">Loading projects...</option>
+              ) : projects.length === 0 ? (
+                <option value="">No projects available</option>
+              ) : (
+                projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))
+              )}
+            </select>
+            {projectsError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{projectsError}</p>
+            )}
+          </div>
+
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -221,7 +280,7 @@ export default function Upload() {
                 {pendingFiles.some((f) => f.status === 'pending') && (
                   <button
                     onClick={handleUploadAll}
-                    disabled={pendingFiles.every((f) => f.status !== 'pending')}
+                    disabled={pendingFiles.every((f) => f.status !== 'pending') || !selectedProjectId}
                     className="bg-primary hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[18px]">cloud_upload</span>

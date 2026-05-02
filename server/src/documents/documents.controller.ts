@@ -19,8 +19,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SearchQueryDto } from './dto/search-query.dto';
-import { TagsService } from '../tags/tags.service';
-import { AttachTagDto } from '../tags/dto/attach-tag.dto';
+import { UploadDocumentDto } from './dto/upload-document.dto';
+import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { ExportsService } from '../exports/exports.service';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -30,7 +30,6 @@ const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export class DocumentsController {
   constructor(
     private readonly documentsService: DocumentsService,
-    private readonly tagsService: TagsService,
     private readonly exportsService: ExportsService,
   ) {}
 
@@ -41,6 +40,7 @@ export class DocumentsController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadDocumentDto,
     @Request() req,
   ) {
     const userId = req.user?.id || req.user?.sub;
@@ -62,7 +62,7 @@ export class DocumentsController {
       throw new BadRequestException('Only PDF files are allowed');
     }
 
-    return this.documentsService.uploadDocument(userId, file);
+    return this.documentsService.uploadDocument(userId, file, dto.projectId);
   }
 
   /**
@@ -138,13 +138,16 @@ export class DocumentsController {
    * List all documents for current user
    */
   @Get()
-  async listDocuments(@Request() req, @Query('tagId') tagId?: string) {
+  async listDocuments(
+    @Request() req,
+    @Query() query: ListDocumentsQueryDto,
+  ) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
 
-    return this.documentsService.listDocuments(userId, tagId);
+    return this.documentsService.listDocuments(userId, query);
   }
 
   /**
@@ -186,39 +189,5 @@ export class DocumentsController {
       userId,
     );
     return result;
-  }
-
-  /**
-   * Attach a tag to a document
-   */
-  @Post(':id/tags')
-  async attachTag(
-    @Param('id') documentId: string,
-    @Body() dto: AttachTagDto,
-    @Request() req,
-  ) {
-    const userId = req.user?.id || req.user?.sub;
-    if (!userId) {
-      throw new BadRequestException('User not authenticated');
-    }
-
-    return this.tagsService.attachTagToDocument(documentId, dto.tagId, userId);
-  }
-
-  /**
-   * Remove a tag from a document
-   */
-  @Delete(':id/tags/:tagId')
-  async removeTag(
-    @Param('id') documentId: string,
-    @Param('tagId') tagId: string,
-    @Request() req,
-  ) {
-    const userId = req.user?.id || req.user?.sub;
-    if (!userId) {
-      throw new BadRequestException('User not authenticated');
-    }
-
-    return this.tagsService.removeTagFromDocument(documentId, tagId, userId);
   }
 }

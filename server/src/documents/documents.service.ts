@@ -1,8 +1,18 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from './extraction.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
-import { DocumentStatus } from '@prisma/client';
+import { DocumentStatus, UserRole, type Prisma } from '@prisma/client';
+import {
+  type DocumentsSortBy,
+  type ListDocumentsQueryDto,
+} from './dto/list-documents-query.dto';
 
 // Documents business logic
 @Injectable()
@@ -19,20 +29,63 @@ export class DocumentsService {
   async uploadDocument(
     userId: string,
     file: Express.Multer.File,
+    projectId?: string,
   ): Promise<{ id: string; status: DocumentStatus }> {
     let documentId: string | undefined;
 
     try {
+      if (!projectId) {
+        throw new BadRequestException('projectId is required');
+      }
+
+      const project = await this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { id: true },
+      });
+
+      if (!project) {
+        throw new BadRequestException('Invalid projectId');
+      }
+
+      // Upload policy: admins can upload anywhere, users only to assigned projects.
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.role !== UserRole.ADMIN) {
+        const membership = await this.prisma.projectMembership.findUnique({
+          where: {
+            userId_projectId: {
+              userId,
+              projectId,
+            },
+          },
+          select: { userId: true },
+        });
+
+        if (!membership) {
+          throw new ForbiddenException('You are not assigned to this project');
+        }
+      }
+
+      const documentCreateData = {
+        uploadedById: userId,
+        projectId,
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        storageKey: '',
+        status: DocumentStatus.UPLOADED,
+      } as Prisma.DocumentUncheckedCreateInput;
+
       // Create document record
       const document = await this.prisma.document.create({
-        data: {
-          ownerId: userId,
-          originalFilename: file.originalname,
-          mimeType: file.mimetype,
-          sizeBytes: file.size,
-          storageKey: '',
-          status: DocumentStatus.UPLOADED,
-        },
+        data: documentCreateData,
       });
 
       documentId = document.id;
@@ -105,7 +158,7 @@ export class DocumentsService {
   /**
    * Get a single document by ID
    */
-  async getDocument(documentId: string, userId: string) {
+  async getDocument(documentId: string, _userId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
@@ -116,25 +169,10 @@ export class DocumentsService {
             pageCount: true,
           },
         },
-        tags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    // Check ownership
-    if (document.ownerId !== userId) {
       throw new NotFoundException('Document not found');
     }
 
@@ -143,12 +181,6 @@ export class DocumentsService {
       ? document.text.extractedText.substring(0, 150) + 
         (document.text.extractedText.length > 150 ? '...' : '')
       : null;
-
-    // Extract tags from DocumentTag relations
-    const documentTags = document.tags.map((dt) => ({
-      id: dt.tag.id,
-      name: dt.tag.name,
-    }));
 
     return {
       id: document.id,
@@ -161,71 +193,143 @@ export class DocumentsService {
       extractedAt: document.text?.extractedAt || null,
       pageCount: document.text?.pageCount || null,
       textPreview,
-      tags: documentTags,
     };
   }
 
   /**
-   * List all documents for current user
+   * List all documents with optional filters/sorting
    */
-  async listDocuments(userId: string, tagId?: string) {
-    // Build where clause with optional tag filter
-    const whereClause: any = { ownerId: userId };
+  async listDocuments(userId: string, query: ListDocumentsQueryDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
 
-    // If tagId is provided, filter by documents that have that tag
-    if (tagId) {
-      whereClause.tags = {
-        some: {
-          tagId: tagId,
-        },
-      };
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
+    const whereClauses: Prisma.DocumentWhereInput[] = [];
+
+    if (query.projectId) {
+      whereClauses.push({ projectId: query.projectId });
+    }
+
+    const textTerms = [
+      query.mainFilter,
+      query.supplier,
+      query.materialType,
+      query.quantity,
+      query.orderNumber,
+    ]
+      .map((term) => term?.trim())
+      .filter((term): term is string => Boolean(term));
+
+    for (const term of textTerms) {
+      whereClauses.push({
+        OR: [
+          {
+            originalFilename: {
+              contains: term,
+            },
+          },
+          {
+            text: {
+              is: {
+                extractedText: {
+                  contains: term,
+                },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    // Until a dedicated deliveryDate field exists, date range applies to upload date.
+    const uploadDateFilter: Prisma.DateTimeFilter = {};
+    if (query.deliveryDateFrom) {
+      const fromDate = new Date(query.deliveryDateFrom);
+      if (!Number.isNaN(fromDate.getTime())) {
+        uploadDateFilter.gte = fromDate;
+      }
+    }
+    if (query.deliveryDateTo) {
+      const toDate = new Date(query.deliveryDateTo);
+      if (!Number.isNaN(toDate.getTime())) {
+        toDate.setHours(23, 59, 59, 999);
+        uploadDateFilter.lte = toDate;
+      }
+    }
+    if (Object.keys(uploadDateFilter).length > 0) {
+      whereClauses.push({ uploadedAt: uploadDateFilter });
+    }
+
+    const where: Prisma.DocumentWhereInput =
+      whereClauses.length > 0 ? { AND: whereClauses } : {};
+
+    const orderBy = this.getDocumentsOrderBy(query.sortBy);
+
     const documents = await this.prisma.document.findMany({
-      where: whereClause,
-      orderBy: { uploadedAt: 'desc' },
+      where,
+      orderBy,
       take: 50,
       select: {
         id: true,
+        projectId: true,
         originalFilename: true,
         mimeType: true,
         sizeBytes: true,
         uploadedAt: true,
         status: true,
         errorMessage: true,
-        tags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+        uploadedBy: {
+          select: {
+            email: true,
+          },
+        },
+        project: {
+          select: {
+            name: true,
           },
         },
       },
     });
 
-    // Map documents and include tags
     return documents.map((doc) => ({
       id: doc.id,
+      projectId: doc.projectId,
+      projectName: doc.project.name,
       originalFilename: doc.originalFilename,
       mimeType: doc.mimeType,
       sizeBytes: doc.sizeBytes,
       uploadedAt: doc.uploadedAt,
       status: doc.status,
       errorMessage: doc.errorMessage,
-      tags: doc.tags.map((dt) => ({
-        id: dt.tag.id,
-        name: dt.tag.name,
-      })),
+      uploadedByEmail: doc.uploadedBy.email,
     }));
+  }
+
+  private getDocumentsOrderBy(sortBy?: DocumentsSortBy): Prisma.DocumentOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'upload-oldest':
+        return [{ uploadedAt: 'asc' }];
+      case 'name-asc':
+        return [{ originalFilename: 'asc' }];
+      case 'name-desc':
+        return [{ originalFilename: 'desc' }];
+      case 'status':
+        return [{ status: 'asc' }, { uploadedAt: 'desc' }];
+      case 'upload-newest':
+      default:
+        return [{ uploadedAt: 'desc' }];
+    }
   }
 
   /**
    * Get extracted text for a document
    */
-  async getDocumentText(documentId: string, userId: string) {
+  async getDocumentText(documentId: string, _userId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
@@ -234,11 +338,6 @@ export class DocumentsService {
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    // Check ownership
-    if (document.ownerId !== userId) {
       throw new NotFoundException('Document not found');
     }
 
@@ -256,7 +355,7 @@ export class DocumentsService {
   /**
    * Search documents by filename and text content
    */
-  async searchDocuments(userId: string, query: string) {
+  async searchDocuments(_userId: string, query: string) {
     // Return empty results for invalid queries
     if (!query || query.trim().length < 2) {
       return { results: [] };
@@ -264,10 +363,9 @@ export class DocumentsService {
 
     const lowerQuery = query.toLowerCase();
 
-    // Get all user's documents with extracted text
+    // Company-wide visibility for search results.
     const allDocuments = await this.prisma.document.findMany({
       where: {
-        ownerId: userId,
         text: {
           isNot: null,
         },
@@ -392,6 +490,15 @@ export class DocumentsService {
    * Delete a single document
    */
   async deleteDocument(documentId: string, userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user || user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admins can delete documents');
+    }
+
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
@@ -400,17 +507,12 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    // Check ownership
-    if (document.ownerId !== userId) {
-      throw new NotFoundException('Document not found');
-    }
-
     // Delete physical file from storage
     if (document.storageKey) {
       await this.blobStore.deletePdf(document.storageKey);
     }
 
-    // Delete from database (cascade will delete DocumentText and DocumentTag)
+    // Delete from database (cascade will delete DocumentText)
     await this.prisma.document.delete({
       where: { id: documentId },
     });

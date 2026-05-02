@@ -4,6 +4,7 @@ import type { BlobStore } from '../storage/blob-store.interface';
 import { BLOB_STORE } from '../storage/blob-store.interface';
 import archiver from 'archiver';
 import { Readable } from 'stream';
+import { promises as fs } from 'fs';
 
 @Injectable()
 export class ExportsService {
@@ -15,18 +16,19 @@ export class ExportsService {
   /**
    * Get a single document's PDF for download
    */
-  async downloadDocument(documentId: string, userId: string): Promise<{ buffer: Buffer; filename: string }> {
-    // Find document and verify ownership
+  async downloadDocument(documentId: string, _userId: string): Promise<{ buffer: Buffer; filename: string }> {
+    // Company-wide visibility: any authenticated user can download existing docs.
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
 
-    if (!document || document.ownerId !== userId) {
+    if (!document) {
       throw new NotFoundException('Document not found');
     }
 
-    // Get PDF from storage
-    const pdfBuffer = await this.blobStore.getPdf(userId, documentId);
+    // Read PDF via persisted storage key to avoid user-scope path coupling.
+    const filePath = this.blobStore.getPath(document.storageKey);
+    const pdfBuffer = await fs.readFile(filePath);
 
     return {
       buffer: pdfBuffer,
@@ -37,18 +39,17 @@ export class ExportsService {
   /**
    * Create a ZIP file containing multiple documents
    */
-  async exportDocuments(documentIds: string[], userId: string): Promise<{ stream: Readable; filename: string }> {
-    // Fetch all documents and verify ownership
+  async exportDocuments(documentIds: string[], _userId: string): Promise<{ stream: Readable; filename: string }> {
+    // Company-wide visibility: fetch requested documents without owner filter.
     const documents = await this.prisma.document.findMany({
       where: {
         id: { in: documentIds },
-        ownerId: userId,
       },
     });
 
     // Check if all requested documents were found
     if (documents.length !== documentIds.length) {
-      throw new NotFoundException('One or more documents not found or access denied');
+      throw new NotFoundException('One or more documents not found');
     }
 
     // Create ZIP archive
@@ -59,7 +60,8 @@ export class ExportsService {
     // Add each document to the archive
     for (const document of documents) {
       try {
-        const pdfBuffer = await this.blobStore.getPdf(userId, document.id);
+        const filePath = this.blobStore.getPath(document.storageKey);
+        const pdfBuffer = await fs.readFile(filePath);
         archive.append(pdfBuffer, { name: document.originalFilename });
       } catch (error) {
         console.error(`Failed to add document ${document.id} to archive:`, error);

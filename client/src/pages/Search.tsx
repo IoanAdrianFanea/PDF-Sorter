@@ -73,7 +73,6 @@ export default function Search() {
           fileName: apiDoc.originalFilename,
           fileSize: formatFileSize(apiDoc.sizeBytes),
           status: apiDoc.status,
-          tags: [],
           uploadDate: formatDate(apiDoc.uploadedAt),
           uploadedBy: 'You',
           pageCount: apiDoc.pageCount || undefined,
