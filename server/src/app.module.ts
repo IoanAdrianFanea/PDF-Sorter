@@ -21,5 +21,7 @@ import path from "path";
     ExportsModule,
     ProjectsModule,
   ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
