@@ -1,41 +1,51 @@
 # Roadmap
 
-This document outlines the development stages of the system.
+Development stages for the Construction Document Indexer.
 
 ---
 
 ## Phase 1 – Core Operational MVP
 
-- Authentication
+Status: **mostly complete** — see `project-plan.md` for outstanding items.
+
+### Complete
+- Authentication (JWT + refresh token rotation)
 - USER / ADMIN roles
-- Projects
-- Upload
+- Project entity + membership
+- PDF upload with project association
 - PDF text extraction
-- Search
-- Preview/details
-- Download
-- Export ZIP
+- Document status tracking
+- Full-text search with snippets
+- Document list with filtering and sorting
+- Document details and text preview
+- Download original file
+- Admin-only delete (single + bulk)
+- ZIP export
+- Storage abstraction (BlobStore interface)
+
+### Remaining
+- Image upload support (PDF + images)
+- Project management endpoints (create, get, update)
+- User admin endpoints (list, create, update role)
 
 ---
 
-## Phase 2 – Usability Improvements
+## Phase 2 – Operational Usability
 
-- Better sorting/filtering
-- Table-style document list
-- Better metadata presentation
-- Improved project navigation
-- Upload progress
-- Processing indicators
-- Better UX for large lists
+- Table-style document view
+- Formal metadata columns (supplier, delivery date, material type, quantity, order number)
+- Improved filtering and column-based sorting
+- Upload progress indicators
+- Processing and error state indicators
+- Better UX for large document lists
 
 ---
 
-## Phase 3 – Async Architecture
+## Phase 3 – Async Processing
 
-- Queue
-- Worker
-- Background extraction
-- Retry failed jobs
+- Queue-based document processing
+- Background text extraction
+- Retry on failure
 - Background export jobs
 - Job status endpoints
 
@@ -43,18 +53,17 @@ This document outlines the development stages of the system.
 
 ## Phase 4 – Deployment
 
-- Cloud or on-prem friendly deployment
 - HTTPS
-- Object storage
-- Logging
+- S3-compatible object storage (replaces LocalBlobStore)
+- Structured logging
 - Environment configuration
 - Backup strategy
 
 ---
 
-## Phase 5 – Future Enhancements
+## Phase 5 – Future
 
-- OCR for scans/photos
+- OCR for scanned images
 - Email attachment ingestion
 - Offline document access
-- Native/mobile exploration
+- Native app evaluation (Windows, Android)

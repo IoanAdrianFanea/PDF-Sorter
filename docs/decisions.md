@@ -1,121 +1,94 @@
 # Technical Decisions
 
-This document explains the key architectural and technical decisions made during development.
-
-Each decision prioritizes realism, simplicity, and operational usefulness.
+Key decisions made during development, with rationale.
 
 ---
 
 ## Shared Company Document Model
 
-Decision:
-Documents are visible across the company by default.
+Documents are company-visible by default.
 
-Why:
-- the workflow is collaborative
-- users are not managing private personal libraries
-- the main business problem is retrieval speed, not user isolation
-
-uploadedBy is still stored for traceability.
+Rationale: the workflow is collaborative. Users are not managing private libraries. The main business problem is retrieval speed, not user isolation. `uploadedBy` is stored for traceability but does not restrict access.
 
 ---
 
-## Project-First Organization
+## Project-First Organisation
 
-Decision:
-Projects are the primary organizing entity.
+Projects are the primary organising entity. Documents belong to projects.
 
-Why:
-- the business already organizes documents by project
-- it matches how users search in real life
-- it is more domain-accurate than tag-first organization
+Rationale: the business already organises documents by project. It matches how users look for things in real life.
 
 ---
 
-## Simple Role System
+## Role-Based Authorization
 
-Decision:
-Introduce roles early.
+Two roles: USER and ADMIN.
 
-Initial roles:
-- USER
-- ADMIN
+- Users can upload to assigned projects, and browse/search/download/export everything
+- Admins can do all of that plus delete documents and upload to any project
 
-Why:
-- shared visibility requires authorization boundaries
-- delete/manage actions must be restricted
-- this adds realism without much complexity
+Rationale: shared visibility requires authorization boundaries. Delete and user-management actions must be restricted without complex permissions.
 
 ---
 
-## File Scope
+## Upload Restricted to Assigned Projects (non-admins)
 
-Decision:
-Support PDFs and images first.
+Non-admin users can only upload to projects they are members of via `ProjectMembership`.
 
-Why:
-- documents arrive by email, scans, and photos
-- this matches the real workflow
-- avoids unnecessary file-type complexity early
+Rationale: prevents users from adding documents to unrelated projects by mistake.
 
 ---
 
-## Web-First Delivery
+## Admin-Only Delete
 
-Decision:
-Build the core system as a web application first.
+Only admins can delete documents.
 
-Why:
-- easier to develop and deploy
-- accessible from office and site
-- strong portfolio signal
-- native apps can be explored later if still valuable
+Rationale: deletion is irreversible. In a shared company system, accidental or malicious deletion must be restricted.
 
 ---
 
-## SQLite for Early Stages
+## Synchronous Processing First
 
-Decision:
-Use SQLite initially.
+Text extraction runs synchronously on upload. No queue or worker yet.
 
-Why:
-- simple setup
-- fast iteration
-- good enough for MVP and portfolio scope
-- easy to replace later if needed
+Rationale: simpler to build and debug. Still correct. A queue-based pipeline is planned for Phase 3 when scale demands it.
+
+---
+
+## SQLite for Development
+
+SQLite via Prisma for the current phase.
+
+Rationale: zero infrastructure, fast iteration. Prisma abstracts the database layer, so migration to Postgres is straightforward later if needed.
 
 ---
 
 ## Storage Abstraction
 
-Decision:
-Keep storage behind an interface.
+Files are stored behind a `BlobStore` interface. Current implementation is `LocalBlobStore`.
 
-Why:
-- local storage works for development
-- S3-compatible/object storage can be added later
-- business logic remains storage-agnostic
+Rationale: keeps business logic storage-agnostic. An S3-compatible implementation can be added in Phase 4 without touching service code.
 
 ---
 
-## Synchronous First, Async Later
+## Storage Key Format
 
-Decision:
-Process uploads synchronously first, then add queue/worker later.
+Current: `{userId}/{documentId}.pdf`
 
-Why:
-- faster delivery of working MVP
-- simpler debugging
-- still leaves room for production-style scaling
+Note: the architecture document originally suggested `{projectId}/{documentId}`. The current format pre-dates project association. This should be revisited when image upload support is added, as it will also require a more generic key structure (no `.pdf` extension assumption).
 
 ---
 
-## Search-Focused Product
+## Web-First Delivery
 
-Decision:
-Prioritize search and retrieval over automation.
+The current frontend is a browser web app.
 
-Why:
-- the largest pain point is time wasted finding documents
-- fast retrieval gives immediate business value
-- advanced automation can wait
+Rationale: fastest way to validate workflows. Stakeholders have expressed interest in Windows and Android native apps. The backend is intentionally API-first so a native client can be added later. The web frontend is treated as the primary interface until workflows are stable enough to justify a native build.
+
+---
+
+## No Tags
+
+Tags were removed as a core feature during the Phase 0.5 refactor.
+
+Projects are the organising structure. Tags added complexity without matching how the business actually groups documents.

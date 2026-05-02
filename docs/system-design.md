@@ -1,114 +1,87 @@
 # System Design
 
-This document describes how the system behaves at runtime.
+Runtime behaviour of the system.
 
 ---
 
 ## Access Model
 
-1. User logs in
-2. User can browse company documents
-3. User can upload new documents to a project
+1. User registers or logs in
+2. User can browse all company documents
+3. User can upload to projects they are assigned to (admins can upload anywhere)
 4. Documents are visible across the company
-5. Role determines destructive/admin capabilities
+5. Role determines delete and admin capabilities
 
-uploadedBy is stored for traceability.
+`uploadedBy` is stored for traceability, not access control.
 
 ---
 
-## Document Status Model
+## Document Status Flow
 
-Documents move through:
+```
+UPLOADED → PROCESSING → PROCESSED
+                      → FAILED
+```
 
-UPLOADED → PROCESSING → PROCESSED / FAILED
+Later (Phase 3):
 
-Later versions may introduce:
-
-UPLOADED → QUEUED → PROCESSING → PROCESSED / FAILED
+```
+UPLOADED → QUEUED → PROCESSING → PROCESSED
+                              → FAILED
+```
 
 ---
 
 ## Upload Flow
 
-1. User uploads a PDF or image
-2. API validates authentication
-3. API validates file type and size
-4. API validates selected project
-5. API creates document record
-6. API stores file through BlobStore
-7. If file is a PDF, extraction runs
-8. Extracted text is stored
-9. Document status becomes PROCESSED
+1. User selects a project and file
+2. API validates JWT
+3. API checks membership (admin bypasses)
+4. Document record created (`status: UPLOADED`)
+5. File saved to `LocalBlobStore` (`server/data/{userId}/{documentId}.pdf`)
+6. `storageKey` written back to document record
+7. `status` set to `PROCESSING`
+8. `pdf-parse` extracts text from file path
+9. `DocumentText` record created
+10. `status` set to `PROCESSED`
 
-If processing fails:
-- document status becomes FAILED
-- error message is stored
+On any failure: `status` set to `FAILED`, `errorMessage` stored.
 
 ---
 
 ## Search Flow
 
-1. User enters a search query
-2. User optionally filters by project
-3. API searches filenames, extracted text, and useful metadata
-4. API returns matching documents with snippets
-5. User opens details or downloads the file
+1. User types a query (minimum 2 characters)
+2. API loads all documents that have extracted text
+3. Filters in memory: filename and extracted text (case-insensitive)
+4. Returns up to 20 results with contextual `<mark>` highlighted snippets
+5. User opens document detail or downloads
 
-Primary purpose:
-reduce time lost in manual document lookup
-
----
-
-## Project Browsing Flow
-
-1. User selects a project
-2. System lists project documents
-3. User sorts/filters the list
-4. User opens the needed document
-
-This reflects the real business workflow, where documents are mainly organized by project.
+Note: in-memory filtering is acceptable at current scale. SQL `LIKE` or FTS can replace it without changing the API contract.
 
 ---
 
-## Retrieval Flow
+## Project Browse Flow
 
-Typical use case:
-
-1. User looks for a delivery-related document
-2. User finds it via project view or search
-3. User checks details/preview
-4. User downloads it or uses it operationally
+1. User navigates to Documents
+2. Selects a project from the filter dropdown (or views all)
+3. Applies additional text / metadata filters if needed
+4. Opens document drawer or downloads
 
 ---
 
 ## Delete Flow
 
-1. Admin requests deletion
-2. API verifies role/authorization
-3. File removed from storage
-4. Related database records removed
-5. System returns success/failure result
-
-Delete is intentionally restricted.
+1. Admin selects document(s)
+2. API verifies `role === ADMIN`
+3. Physical file removed from `LocalBlobStore`
+4. Database record deleted (cascades to `DocumentText`)
 
 ---
 
 ## Export Flow
 
 1. User selects one or more documents
-2. API validates access
-3. API creates ZIP archive
-4. User downloads ZIP
-
-Later versions may support async export jobs.
-
----
-
-## Future Intake Enhancements
-
-Possible future additions:
-
-- OCR for scanned/image documents
-- ingestion from email attachments
-- improved metadata extraction
-- offline-friendly viewing for downloaded files
+2. `POST /exports` with `documentIds`
+3. API streams a ZIP archive containing the selected files
+4. Browser downloads the archive

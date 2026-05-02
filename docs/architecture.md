@@ -1,203 +1,138 @@
 # Architecture Overview
 
-This document describes the high-level system structure and design principles.
-
-The goal is to keep the architecture modular, secure, and production-aware without unnecessary complexity.
+Modular monolith. Controller → service → persistence separation throughout.
 
 ---
 
 ## High-Level Structure
 
+```
+Client (React + Vite)
+        │
+        ▼
+NestJS API  (port 3000)
+        │
+        ├── Auth module
+        ├── Projects module
+        ├── Documents module
+        ├── Exports module
+        └── Users module (internal, no controller yet)
+        │
+        ▼
+Prisma ORM
+        │
+        ▼
+SQLite (dev.db)
+        +
+Local file storage (server/data/)
+```
+
+---
+
+## Domain Model
+
+```
 User
-  ↓
-Frontend Client
-  ↓
-NestJS API
-  ↓
-Database (users + projects + documents + extracted text + metadata)
-  ↓
-Blob Storage (Local or S3-compatible)
+  └── ProjectMembership → Project
+  └── uploadedDocuments → Document → DocumentText
+  └── RefreshToken
+```
 
-Later phases introduce:
-
-API
-  ↓
-Queue
-  ↓
-Worker
+Rules:
+- Documents belong to a project, not a user
+- Documents are company-visible by default
+- `uploadedById` stored for traceability
+- Only admins can delete
 
 ---
 
-## Core Domain Model
-
-Company
-  ↓
-Users
-  ↓
-Projects
-  ↓
-Documents
-
-Important rules:
-
-- documents are company-visible by default
-- projects are the main organizational unit
-- uploadedBy is stored for traceability
-- delete/user-management actions are role-restricted
-
----
-
-## Main Entities
+## Entities
 
 ### User
-Represents a company user who can access the system.
-
-Key properties:
-- id
-- email
-- passwordHash
-- role
-- createdAt
-- updatedAt
+- `id`, `email`, `passwordHash`, `role` (USER | ADMIN)
+- `fullName`, `language`, `timezone` (optional profile fields)
+- `createdAt`, `updatedAt`
 
 ### Project
-Represents a construction project or site grouping.
+- `id`, `name` (unique), `createdAt`, `updatedAt`
 
-Key properties:
-- id
-- name
-- code (optional)
-- createdAt
-- updatedAt
+### ProjectMembership
+- Composite key: `userId + projectId`
+- Determines upload permission for non-admin users
 
 ### Document
-Represents an uploaded operational document.
-
-Key properties:
-- id
-- projectId
-- uploadedById
-- originalFilename
-- mimeType
-- sizeBytes
-- storageKey
-- status
-- errorMessage
-- createdAt
-- updatedAt
+- `id`, `projectId`, `uploadedById`
+- `originalFilename`, `mimeType`, `sizeBytes`, `storageKey`
+- `status` (UPLOADED | QUEUED | PROCESSING | PROCESSED | FAILED)
+- `errorMessage`, `uploadedAt`
 
 ### DocumentText
-Stores extracted searchable text for PDFs.
+- One-to-one with Document
+- `extractedText`, `pageCount`, `extractedAt`
 
-Key properties:
-- documentId
-- extractedText
-- pageCount
-- extractedAt
-
----
-
-## Role Model
-
-Two initial roles are enough:
-
-### USER
-Can:
-- log in
-- upload documents
-- browse project documents
-- search documents
-- preview/download/export documents
-
-### ADMIN
-Can do everything USER can, plus:
-- delete documents
-- manage users
-- manage higher-level system actions
-
-This keeps authorization realistic without overengineering.
+### RefreshToken
+- `tokenHash` (never stored in plaintext)
+- `expiresAt`, `revokedAt`
 
 ---
 
-## Document Processing Layer
+## Document Processing Flow
 
-### Components
+```
+Upload request
+    → validate auth
+    → validate project exists
+    → check membership (or admin)
+    → create Document record (status: UPLOADED)
+    → save file via BlobStore
+    → update storageKey
+    → set status: PROCESSING
+    → extract text (pdf-parse)
+    → save DocumentText
+    → set status: PROCESSED
 
-**DocumentsController**
-- upload
-- list
-- get details
-- download
-- delete
-- search
-
-**DocumentsService**
-- orchestrates metadata storage
-- project association
-- file storage
-- extraction
-- search
-- deletion
-
-**ExtractionService**
-- extracts text from PDFs
-
-**BlobStore**
-- abstract storage interface
-
-**LocalBlobStore**
-- local filesystem implementation
-
-**Future S3BlobStore**
-- cloud object storage implementation
+On any failure:
+    → set status: FAILED, store errorMessage
+```
 
 ---
 
-## Storage Strategy
+## Storage
 
-Files are stored independently from database metadata.
+Files stored via `BlobStore` interface. Current implementation: `LocalBlobStore`.
 
-Suggested key structure:
+Storage key format: `{userId}/{documentId}.pdf`
 
-`/data/{projectId}/{documentId}`
+Path on disk: `server/data/{storageKey}`
 
-This gives:
-
-- project-based grouping
-- easier migration to S3/object storage
-- stable storage abstraction
+The interface is designed to be swapped for an S3-compatible implementation in a later phase without changing business logic.
 
 ---
 
-## Document Status Model
+## Authentication
 
-Documents move through this state flow:
-
-UPLOADED → PROCESSING → PROCESSED | FAILED
-
-Later async version:
-
-UPLOADED → QUEUED → PROCESSING → PROCESSED | FAILED
+- Access token: short-lived JWT (15m), returned in response body
+- Refresh token: longer-lived JWT (7d), stored as HttpOnly cookie
+- Refresh token rotation: each use issues a new pair and invalidates the previous
+- Logout revokes all refresh tokens for the user
+- Passwords hashed with Argon2
 
 ---
 
-## Security Model
+## Role Enforcement
 
-- all endpoints require authentication
-- authorization enforced at API layer
-- destructive actions restricted by role
-- uploadedBy stored for audit/traceability
-- documents are not private per-user records
+Enforced in the service layer, not the controller layer.
+
+- Upload: admins bypass membership check; users must have a `ProjectMembership` row
+- Delete: service checks `user.role === ADMIN` before proceeding
+- Search and list: company-wide, no role restriction
 
 ---
 
-## Architectural Principles
+## Principles
 
-- modular monolith
-- controller → service → persistence separation
-- project-first organization
-- shared company visibility
-- role-based destructive actions
-- storage abstraction
-- fail-safe error handling
-- production-aware, not overengineered
+- Project-first organisation
+- Shared company visibility
+- Role-based destructive actions
+- Storage abstraction for future migration
+- Synchronous processing now, async queue in a later phase
