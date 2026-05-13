@@ -92,3 +92,14 @@ Rationale: fastest way to validate workflows. Stakeholders have expressed intere
 Tags were removed as a core feature during the Phase 0.5 refactor.
 
 Projects are the organising structure. Tags added complexity without matching how the business actually groups documents.
+
+---
+
+## Two User Creation Methods (create vs createUser)
+
+`UsersService` has two creation methods intentionally:
+
+- `create(email, passwordHash)` — used by auth during self-registration. Auth service handles hashing before calling this.
+- `createUser(dto)` — used by the admin endpoint. Accepts a plain password and hashes it internally.
+
+They serve different callers with different contracts. Merging them would either expose hashing logic to the auth service or force the admin endpoint into an awkward flow. Kept separate for clarity.

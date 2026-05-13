@@ -69,13 +69,41 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 ---
 
-## Users (not yet implemented)
+## Users
 
-Planned for Phase 1 completion:
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/users` | JWT + ADMIN | List all users |
+| GET | `/users/:id` | JWT | Fetch single user. Admins can fetch anyone; users can only fetch their own (403 otherwise) |
+| POST | `/users` | JWT + ADMIN | Create user with temporary password |
+| POST | `/users/:id/role` | JWT + ADMIN | Set user role |
 
-- `GET /users` — list users (admin only)
-- `POST /users` — create user (admin only)
-- `PATCH /users/:id/role` — update role (admin only)
+### POST /users — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | ✅ | User email address |
+| `password` | string | ✅ | Temporary password, user should change on first login |
+| `fullName` | string | ✅ | Display name |
+| `role` | `USER` \| `ADMIN` | ✅ | Assigned role |
+
+### POST /users/:id/role — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `role` | `USER` \| `ADMIN` | ✅ | New role to assign |
+
+### User Response Object
+
+All endpoints return the same user shape (no passwordHash):
+
+| Field | Type |
+|---|---|
+| `id` | string |
+| `email` | string |
+| `fullName` | string |
+| `role` | `USER` \| `ADMIN` |
+| `createdAt` | ISO date string |
 
 ---
 
