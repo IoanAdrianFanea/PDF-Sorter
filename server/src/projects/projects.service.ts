@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateProjectDto } from './dto/CreateProject.dto';
+import { UpdateProjectDto } from './dto/UpdateProject.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -50,4 +52,85 @@ export class ProjectsService {
       orderBy: { name: 'asc' },
     });
   }
+
+  async createProject(CreateProjectDto: CreateProjectDto) {
+    return this.prisma.project.create({
+      data: {
+        name: CreateProjectDto.name,
+      },
+    });
+  }
+
+  async deleteProject(id: string) {
+    await this.prisma.projectMembership.deleteMany({
+        where: { projectId: id },
+    });
+    return this.prisma.project.delete({
+        where: { id },
+    });
+  } 
+
+  async updateProjectName(id: string, UpdateProjectDto: UpdateProjectDto) {
+    return this.prisma.project.update({
+      where: { id },
+      data: { name: UpdateProjectDto.name },
+    });
+  }
+
+  async getProjectMembers(id: string) {
+    return this.prisma.projectMembership.findMany({
+      where: { projectId: id },
+      select: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+          },
+        },
+      },
+    }); 
+  }
+
+  async addProjectMember(id: string, userId: string) {
+    return this.prisma.projectMembership.create({
+      data: {
+        projectId: id,
+        userId,
+      },
+    });
+  }
+
+  async removeProjectMember(id: string, userId: string) {
+    return this.prisma.projectMembership.deleteMany({
+      where: {
+        projectId: id,
+        userId,
+      },
+    });
+  }
+
+  async getProject(id: string) {
+    return this.prisma.project.findUnique({
+        where: { id },
+        include: {
+            memberships: {
+                select: {
+                    user: {
+                        select: {
+                            id: true,
+                            email: true,
+                            fullName: true,
+                            role: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+  }
+
 }
+
+

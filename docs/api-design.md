@@ -24,11 +24,62 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/projects` | JWT | List projects. `?scope=uploadable` returns only projects the user can upload to |
+| POST | `/projects` | JWT + ADMIN | Create project |
+| GET | `/projects/:id` | JWT + ADMIN | Get project details + members |
+| PATCH | `/projects/:id` | JWT + ADMIN | Update project name |
+| DELETE | `/projects/:id` | JWT + ADMIN | Delete project and all its documents permanently |
+| GET | `/projects/:id/members` | JWT + ADMIN | Get project members |
+| POST | `/projects/:id/members` | JWT + ADMIN | Add user to project |
+| DELETE | `/projects/:id/members/:userId` | JWT + ADMIN | Remove user from project |
 
-**Not yet implemented:**
-- `POST /projects` — create project
-- `GET /projects/:id` — project detail
-- `PATCH /projects/:id` — update project
+### POST /projects — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✅ | Project name (must be unique) |
+
+### PATCH /projects/:id — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✅ | New project name |
+
+### POST /projects/:id/members — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `userId` | string | ✅ | ID of user to add to project |
+
+### Project Response Object (`GET /projects/:id`)
+
+```json
+{
+    "id": "...",
+    "name": "...",
+    "createdAt": "...",
+    "members": [
+        {
+            "userId": "...",
+            "email": "...",
+            "fullName": "...",
+            "role": "USER | ADMIN"
+        }
+    ]
+}
+```
+
+### Member Response Object (`GET /projects/:id/members`)
+
+```json
+[
+    {
+        "userId": "...",
+        "email": "...",
+        "fullName": "...",
+        "role": "USER | ADMIN"
+    }
+]
+```
 
 ---
 
