@@ -12,6 +12,7 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(true);
+  const isImage = document.mimeType.startsWith('image/');
 
   useEffect(() => {
     let isMounted = true;
@@ -80,8 +81,16 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
         <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="shrink-0 p-2 bg-red-100 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
-                <span className="material-symbols-outlined text-[20px] block">picture_as_pdf</span>
+              <div
+                className={`shrink-0 p-2 rounded-lg ${
+                  isImage
+                    ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                    : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px] block">
+                  {isImage ? 'image' : 'picture_as_pdf'}
+                </span>
               </div>
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-slate-900 dark:text-white truncate">{document.fileName}</h2>
@@ -129,12 +138,20 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
                     <span className="material-symbols-outlined text-4xl text-red-500 mb-2">error</span>
                     <p className="text-sm font-medium text-red-600 dark:text-red-400">Could not load this preview</p>
                     <p className="text-xs text-slate-500 mt-1">{previewError}</p>
-                    <p className="text-xs text-slate-500 mt-3">Use Download PDF to open the file directly.</p>
+                    <p className="text-xs text-slate-500 mt-3">Use Download to open the file directly.</p>
                   </div>
                 </div>
               )}
 
-              {!isPreviewLoading && previewUrl && (
+              {!isPreviewLoading && previewUrl && isImage && (
+                <img
+                  src={previewUrl}
+                  alt={`Preview of ${document.fileName}`}
+                  className="w-full h-full object-contain bg-white"
+                />
+              )}
+
+              {!isPreviewLoading && previewUrl && !isImage && (
                 <iframe
                   src={previewUrl}
                   title={`Preview of ${document.fileName}`}
@@ -159,7 +176,7 @@ export function DocumentPreviewModal({ document, onClose }: DocumentPreviewModal
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-blue-600 disabled:opacity-70 text-white text-sm font-medium"
             >
               <span className="material-symbols-outlined text-[16px]">download</span>
-              {isDownloading ? 'Downloading...' : 'Download PDF'}
+              {isDownloading ? 'Downloading...' : 'Download'}
             </button>
           </div>
         </div>

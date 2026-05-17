@@ -16,7 +16,10 @@ export class ExportsService {
   /**
    * Get a single document's PDF for download
    */
-  async downloadDocument(documentId: string, _userId: string): Promise<{ buffer: Buffer; filename: string }> {
+  async downloadDocument(
+    documentId: string,
+    _userId: string,
+  ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
     // Company-wide visibility: any authenticated user can download existing docs.
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
@@ -26,13 +29,14 @@ export class ExportsService {
       throw new NotFoundException('Document not found');
     }
 
-    // Read PDF via persisted storage key to avoid user-scope path coupling.
+    // Read file via persisted storage key to avoid user-scope path coupling.
     const filePath = this.blobStore.getPath(document.storageKey);
-    const pdfBuffer = await fs.readFile(filePath);
+    const fileBuffer = await fs.readFile(filePath);
 
     return {
-      buffer: pdfBuffer,
+      buffer: fileBuffer,
       filename: document.originalFilename,
+      mimeType: document.mimeType,
     };
   }
 

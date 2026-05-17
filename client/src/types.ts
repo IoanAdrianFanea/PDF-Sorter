@@ -3,6 +3,7 @@ export type DocumentStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'PROCESSED' 
 export interface Document {
   id: string;
   fileName: string;
+  mimeType: string;
   fileSize: string;
   status: DocumentStatus;
   uploadDate: string;

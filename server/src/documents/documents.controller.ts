@@ -123,9 +123,10 @@ export class DocumentsController {
       throw new BadRequestException('User not authenticated');
     }
 
-    const { buffer, filename } = await this.exportsService.downloadDocument(id, userId);
+    const { buffer, filename, mimeType } =
+      await this.exportsService.downloadDocument(id, userId);
 
-    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }

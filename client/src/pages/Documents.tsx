@@ -26,6 +26,7 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
   return {
     id: apiDoc.id,
     fileName: apiDoc.originalFilename,
+    mimeType: apiDoc.mimeType,
     fileSize: formatFileSize(apiDoc.sizeBytes),
     status: apiDoc.status,
     uploadDate: formatDate(apiDoc.uploadedAt),

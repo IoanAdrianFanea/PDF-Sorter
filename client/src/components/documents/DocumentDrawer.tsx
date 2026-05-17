@@ -10,6 +10,7 @@ interface DocumentDrawerProps {
 
 export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const isImage = document.mimeType.startsWith('image/');
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -41,7 +42,9 @@ export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerPr
               Open Preview
             </button>
           </div>
-          <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600">picture_as_pdf</span>
+          <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600">
+            {isImage ? 'image' : 'picture_as_pdf'}
+          </span>
           <div className="absolute top-3 right-3 bg-white dark:bg-slate-700 rounded p-1 shadow-sm">
             <span className="material-symbols-outlined text-slate-400 text-sm">open_in_full</span>
           </div>
@@ -64,7 +67,7 @@ export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerPr
               </span>
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[16px]">hard_drive</span>
-                {document.fileSize} • PDF Document
+                {document.fileSize} • {isImage ? 'Image' : 'PDF Document'}
               </span>
             </div>
           </div>
