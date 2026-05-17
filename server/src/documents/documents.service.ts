@@ -24,7 +24,7 @@ export class DocumentsService {
   ) {}
 
   /**
-   * Upload and process a PDF document
+   * Upload and process a document
    */
   async uploadDocument(
     userId: string,
@@ -91,10 +91,11 @@ export class DocumentsService {
       documentId = document.id;
 
       // Save file to storage
-      const { storageKey } = await this.blobStore.savePdf(
+      const { storageKey } = await this.blobStore.saveFile(
         userId,
         document.id,
         file.buffer,
+        file.mimetype,
       );
 
       // Update document with storage key
@@ -103,30 +104,32 @@ export class DocumentsService {
         data: { storageKey },
       });
 
-      // Set status to processing
-      await this.prisma.document.update({
-        where: { id: document.id },
-        data: { status: DocumentStatus.PROCESSING },
-      });
+      if (file.mimetype === 'application/pdf') {
+        // Set status to processing
+        await this.prisma.document.update({
+          where: { id: document.id },
+          data: { status: DocumentStatus.PROCESSING },
+        });
 
-      // Extract text from PDF
-      const filePath = this.blobStore.getPath(storageKey);
-      const { text: extractedText, pageCount } =
-        await this.extractionService.extractTextFromPdfPath(filePath);
+        // Extract text from PDF
+        const filePath = this.blobStore.getPath(storageKey);
+        const { text: extractedText, pageCount } =
+          await this.extractionService.extractTextFromPdfPath(filePath);
 
-      // Save extracted text
-      await this.prisma.documentText.upsert({
-        where: { documentId: document.id },
-        create: {
-          documentId: document.id,
-          extractedText,
-          pageCount,
-        },
-        update: {
-          extractedText,
-          pageCount,
-        },
-      });
+        // Save extracted text
+        await this.prisma.documentText.upsert({
+          where: { documentId: document.id },
+          create: {
+            documentId: document.id,
+            extractedText,
+            pageCount,
+          },
+          update: {
+            extractedText,
+            pageCount,
+          },
+        });
+      }
 
       // Mark as processed
       await this.prisma.document.update({
@@ -509,7 +512,7 @@ export class DocumentsService {
 
     // Delete physical file from storage
     if (document.storageKey) {
-      await this.blobStore.deletePdf(document.storageKey);
+      await this.blobStore.deleteFile(document.storageKey);
     }
 
     // Delete from database (cascade will delete DocumentText)

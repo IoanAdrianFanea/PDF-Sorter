@@ -20,6 +20,11 @@ export default function Upload() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const allowedMimeTypes = new Set([
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+  ]);
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -60,12 +65,12 @@ export default function Upload() {
     e.preventDefault();
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files).filter(
-      (file) => file.type === 'application/pdf'
+    const files = Array.from(e.dataTransfer.files).filter((file) =>
+      allowedMimeTypes.has(file.type),
     );
 
     if (files.length === 0) {
-      alert('Only PDF files are allowed');
+      alert('Only PDF, JPEG, and PNG files are supported');
       return;
     }
 
@@ -75,12 +80,12 @@ export default function Upload() {
   // Handle file input selection
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files).filter(
-        (file) => file.type === 'application/pdf'
+      const files = Array.from(e.target.files).filter((file) =>
+        allowedMimeTypes.has(file.type),
       );
 
       if (files.length === 0) {
-        alert('Only PDF files are allowed');
+        alert('Only PDF, JPEG, and PNG files are supported');
         return;
       }
 
@@ -249,10 +254,12 @@ export default function Upload() {
               <span className="material-symbols-outlined text-4xl">upload_file</span>
             </div>
             <p className="text-lg font-medium text-slate-900 dark:text-white mb-2">
-              {isDragging ? 'Drop files here' : 'Drag & drop PDF files here or browse'}
+              {isDragging
+                ? 'Drop files here'
+                : 'Drag & drop PDF or image files here or browse'}
             </p>
             <p className="text-sm text-slate-500 mb-6">
-              Support for single or bulk upload. Maximum file size 25MB per file.
+              Support for single or bulk upload. Maximum file size 50MB per file.
             </p>
             <button
               type="button"
@@ -263,7 +270,7 @@ export default function Upload() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,image/jpeg,image/png"
               multiple
               onChange={handleFileSelect}
               className="hidden"

@@ -23,7 +23,7 @@ import { UploadDocumentDto } from './dto/upload-document.dto';
 import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { ExportsService } from '../exports/exports.service';
 
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
@@ -34,10 +34,14 @@ export class DocumentsController {
   ) {}
 
   /**
-   * Upload a PDF file
+   * Upload a PDF or image file
    */
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
@@ -58,8 +62,16 @@ export class DocumentsController {
       );
     }
 
-    if (file.mimetype !== 'application/pdf') {
-      throw new BadRequestException('Only PDF files are allowed');
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PDF, JPEG, and PNG files are supported',
+      );
     }
 
     return this.documentsService.uploadDocument(userId, file, dto.projectId);

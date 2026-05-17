@@ -9,14 +9,16 @@ export class LocalBlobStore implements BlobStore {
   private readonly rootDir = './data';
 
   /**
-   * Save a PDF file to disk at ./data/{userId}/{documentId}.pdf
+   * Save a file to disk at ./data/{userId}/{documentId}.{ext}
    */
-  async savePdf(
+  async saveFile(
     userId: string,
     documentId: string,
     buffer: Buffer,
+    mimeType: string,
   ): Promise<{ storageKey: string }> {
-    const storageKey = `${userId}/${documentId}.pdf`;
+    const extension = this.getExtensionFromMimeType(mimeType);
+    const storageKey = `${userId}/${documentId}${extension}`;
     const userDir = path.join(this.rootDir, userId);
     const filePath = path.join(this.rootDir, storageKey);
 
@@ -30,12 +32,25 @@ export class LocalBlobStore implements BlobStore {
   }
 
   /**
-   * Get a PDF file as a Buffer
+   * Get a file as a Buffer
    */
-  async getPdf(userId: string, documentId: string): Promise<Buffer> {
-    const storageKey = `${userId}/${documentId}.pdf`;
-    const filePath = path.join(this.rootDir, storageKey);
-    return await fs.readFile(filePath);
+  async getFile(userId: string, documentId: string): Promise<Buffer> {
+    const extensions = ['.pdf', '.jpg', '.png'];
+
+    for (const extension of extensions) {
+      const storageKey = `${userId}/${documentId}${extension}`;
+      const filePath = path.join(this.rootDir, storageKey);
+
+      try {
+        return await fs.readFile(filePath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('File not found');
   }
 
   /**
@@ -46,9 +61,9 @@ export class LocalBlobStore implements BlobStore {
   }
 
   /**
-   * Delete a PDF file from disk
+   * Delete a file from disk
    */
-  async deletePdf(storageKey: string): Promise<void> {
+  async deleteFile(storageKey: string): Promise<void> {
     const filePath = path.join(this.rootDir, storageKey);
     try {
       await fs.unlink(filePath);
@@ -57,6 +72,19 @@ export class LocalBlobStore implements BlobStore {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error;
       }
+    }
+  }
+
+  private getExtensionFromMimeType(mimeType: string): string {
+    switch (mimeType) {
+      case 'application/pdf':
+        return '.pdf';
+      case 'image/jpeg':
+        return '.jpg';
+      case 'image/png':
+        return '.png';
+      default:
+        throw new Error(`Unsupported mime type: ${mimeType}`);
     }
   }
 }

@@ -2,18 +2,19 @@
 // Allows swapping between local storage and S3/cloud storage
 export interface BlobStore {
   /**
-   * Save a PDF file
+   * Save a file
    */
-  savePdf(
+  saveFile(
     userId: string,
     documentId: string,
     buffer: Buffer,
+    mimeType: string,
   ): Promise<{ storageKey: string }>;
 
   /**
-   * Get a PDF file as a Buffer
+    * Get a file as a Buffer
    */
-  getPdf(userId: string, documentId: string): Promise<Buffer>;
+    getFile(userId: string, documentId: string): Promise<Buffer>;
 
   /**
    * Get the full path to a stored file
@@ -21,9 +22,9 @@ export interface BlobStore {
   getPath(storageKey: string): string;
 
   /**
-   * Delete a PDF file
+   * Delete a file
    */
-  deletePdf(storageKey: string): Promise<void>;
+  deleteFile(storageKey: string): Promise<void>;
 }
 
 // Injection token for BlobStore
