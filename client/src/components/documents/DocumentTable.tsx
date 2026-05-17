@@ -100,7 +100,8 @@ export function DocumentTable({
             return (
               <tr
                 key={doc.id}
-                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
+                onClick={() => onSelectDocument(doc.id)}
+                className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
                   isDrawerOpen
                     ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-primary'
                     : isSelected
@@ -134,13 +135,13 @@ export function DocumentTable({
                   </div>
                 </td>
                 <td className="py-3 px-2 text-sm text-slate-600 dark:text-slate-300">{doc.uploadedBy || 'Unknown'}</td>
-                <td className="py-3 px-2 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                <td className="py-3 px-2">
                   {getStatusBadge(doc.status)}
                 </td>
-                <td className="py-3 px-2 text-sm text-slate-500 cursor-pointer" onClick={() => onSelectDocument(doc.id)}>
+                <td className="py-3 px-2 text-sm text-slate-500">
                   {doc.uploadDate}
                 </td>
-                <td className="py-3 px-6">
+                <td className="py-3 px-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => {
