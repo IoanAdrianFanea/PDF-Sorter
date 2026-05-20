@@ -32,48 +32,43 @@ Key rules:
 
 ## Phase 1 – Core Operational MVP
 
-### ✅ Done
+Status: **complete**
 
 | Item | Notes |
 |---|---|
 | JWT authentication with access + refresh tokens | Refresh token rotation, HttpOnly cookie |
 | Argon2 password hashing | |
 | USER / ADMIN role model | Enforced in service layer |
-| Project entity | `Project` + `ProjectMembership` in schema |
+| Project entity + membership | `Project` + `ProjectMembership` in schema |
+| Project management endpoints | Create, update, delete, list members, add/remove members |
+| User admin endpoints | List, create, get by id, set role |
 | Upload authorization | Admins unrestricted; users must be project members |
-| PDF upload + local storage | Stored under `server/data/` via `LocalBlobStore` |
+| PDF + image upload + local storage | Stored under `server/data/` via `LocalBlobStore` |
 | PDF text extraction | `pdf-parse`, synchronous, runs on upload |
+| Image upload without extraction | JPEG + PNG supported; status set to PROCESSED, no DocumentText created |
+| 50MB file size limit | Enforced at controller level |
 | Document status tracking | `UPLOADED → PROCESSING → PROCESSED / FAILED` |
 | Document list with filtering | Filter by project, text, supplier, material type, quantity, order number, date range |
 | Document sorting | Upload date (asc/desc), name (asc/desc), status |
 | Full-text search with snippets | Company-wide, searches filename + extracted text, returns `<mark>` highlighted snippets |
 | Document details and text preview | First 150 chars of extracted text in list response |
-| Download original PDF | |
+| Download original file | |
 | Admin-only delete (single + bulk) | Role enforced in service |
 | ZIP export of selected documents | |
 | Storage abstraction | `BlobStore` interface, `LocalBlobStore` implementation |
 | Profile update endpoint | `PATCH /auth/me` — fullName, language, timezone |
 
-### ❌ Outstanding (Phase 1)
-
-| Item | Notes |
-|---|---|
-| Image upload support | Controller and client both hard-code `application/pdf`; plan requires PDF + images |
-| Project creation endpoint | `POST /projects` does not exist — projects must be created directly in the DB |
-| Project detail / update endpoints | `GET /projects/:id` and `PATCH /projects/:id` do not exist |
-| User admin endpoints | `GET /users`, `POST /users`, `PATCH /users/:id/role` not implemented — no users controller |
-
 ---
 
 ## Phase 2 – Operational Usability
 
-- Better sorting and filtering in the document list
+- Formal metadata columns as real schema fields (supplier, delivery date, material type, quantity, order number)
+- Filtering and sorting based on those columns
 - Table-style document view (desktop layout)
 - Improved project navigation
 - Upload progress indicators
 - Processing / error state indicators
 - Better UX for large document lists
-- Formal metadata fields (supplier, delivery date, material type) as schema columns rather than text search fallback
 
 ---
 
@@ -110,7 +105,7 @@ Key rules:
 
 ## Known Technical Notes
 
-- Storage key format is currently `{userId}/{documentId}.pdf` — architecture doc suggests `{projectId}/{documentId}`. To revisit when image support is added.
-- List endpoint accepts `supplier`, `materialType`, `quantity`, `orderNumber` as filter params but these are not schema columns — they fall back to filename + extracted text search. Real columns needed before these filters are meaningful.
+- Storage key format is `{userId}/{documentId}.{ext}` where ext is derived from mime type.
+- List endpoint accepts `supplier`, `materialType`, `quantity`, `orderNumber` as filter params but these are not schema columns — they fall back to filename + extracted text search. Real columns needed before these filters are meaningful (Phase 2).
 - The `/jobs` route exists in the frontend as a mock-data preview of Phase 3 functionality. It is clearly labelled and does not connect to the backend.
-- `User` has `fullName`, `language`, `timezone` fields added in the last migration. Useful but low priority.
+- `User` has `fullName`, `language`, `timezone` fields. `language` and `timezone` are candidates for removal (see backlog).

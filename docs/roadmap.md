@@ -6,14 +6,17 @@ Development stages for the Construction Document Indexer.
 
 ## Phase 1 – Core Operational MVP
 
-Status: **mostly complete** — see `project-plan.md` for outstanding items.
+Status: **complete**
 
-### Complete
 - Authentication (JWT + refresh token rotation)
 - USER / ADMIN roles
 - Project entity + membership
-- PDF upload with project association
+- Project management endpoints (create, update, delete, members)
+- User admin endpoints (list, create, get, set role)
+- PDF + image upload (JPEG, PNG) with project association
 - PDF text extraction
+- Image upload without extraction (OCR planned for Phase 5)
+- 50MB file size limit
 - Document status tracking
 - Full-text search with snippets
 - Document list with filtering and sorting
@@ -23,18 +26,16 @@ Status: **mostly complete** — see `project-plan.md` for outstanding items.
 - ZIP export
 - Storage abstraction (BlobStore interface)
 
-### Remaining
-- Image upload support (PDF + images)
-- Project management endpoints (create, get, update)
-- User admin endpoints (list, create, update role)
-
 ---
 
 ## Phase 2 – Operational Usability
 
-- Table-style document view
-- Formal metadata columns (supplier, delivery date, material type, quantity, order number)
-- Improved filtering and column-based sorting
+Status: **not started**
+
+- Formal metadata columns as real schema fields (supplier, delivery date, material type, quantity, order number)
+- Filtering and sorting based on those columns
+- Table-style document view (desktop layout)
+- Improved project navigation
 - Upload progress indicators
 - Processing and error state indicators
 - Better UX for large document lists
@@ -43,15 +44,18 @@ Status: **mostly complete** — see `project-plan.md` for outstanding items.
 
 ## Phase 3 – Async Processing
 
+Status: **not started**
+
 - Queue-based document processing
-- Background text extraction
-- Retry on failure
+- Background text extraction with retry
 - Background export jobs
 - Job status endpoints
 
 ---
 
 ## Phase 4 – Deployment
+
+Status: **not started**
 
 - HTTPS
 - S3-compatible object storage (replaces LocalBlobStore)
@@ -63,7 +67,9 @@ Status: **mostly complete** — see `project-plan.md` for outstanding items.
 
 ## Phase 5 – Future
 
-- OCR for scanned images
+Status: **not started**
+
+- OCR for scanned images and site photos
 - Email attachment ingestion
 - Offline document access
 - Native app evaluation (Windows, Android)

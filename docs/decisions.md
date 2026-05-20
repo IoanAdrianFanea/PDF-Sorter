@@ -25,9 +25,9 @@ Rationale: the business already organises documents by project. It matches how u
 Two roles: USER and ADMIN.
 
 - Users can upload to assigned projects, and browse/search/download/export everything
-- Admins can do all of that plus delete documents and upload to any project
+- Admins can do all of that plus delete documents, manage projects, and manage users
 
-Rationale: shared visibility requires authorization boundaries. Delete and user-management actions must be restricted without complex permissions.
+Rationale: shared visibility requires authorization boundaries. Delete and management actions must be restricted without complex permissions.
 
 ---
 
@@ -44,6 +44,22 @@ Rationale: prevents users from adding documents to unrelated projects by mistake
 Only admins can delete documents.
 
 Rationale: deletion is irreversible. In a shared company system, accidental or malicious deletion must be restricted.
+
+---
+
+## Admin-Controlled User Creation
+
+Users are created by admins via `POST /users`. Self-registration via `POST /auth/register` still exists but may be restricted in a later phase.
+
+Rationale: for an internal company tool, it makes more sense for an admin to provision accounts rather than allow open sign-up.
+
+---
+
+## Image Upload Without OCR
+
+Images (JPEG, PNG) are accepted on upload but text extraction is skipped. Status is set to `PROCESSED` with no `DocumentText` record.
+
+Rationale: OCR requires a separate library (`tesseract.js`) and adds complexity. Storing images now without OCR unblocks the use case. OCR will be added in Phase 5 without changing the upload contract.
 
 ---
 
@@ -73,9 +89,9 @@ Rationale: keeps business logic storage-agnostic. An S3-compatible implementatio
 
 ## Storage Key Format
 
-Current: `{userId}/{documentId}.pdf`
+Current: `{userId}/{documentId}.{ext}` where ext is derived from mime type.
 
-Note: the architecture document originally suggested `{projectId}/{documentId}`. The current format pre-dates project association. This should be revisited when image upload support is added, as it will also require a more generic key structure (no `.pdf` extension assumption).
+Extension mapping: `application/pdf` → `.pdf`, `image/jpeg` → `.jpg`, `image/png` → `.png`.
 
 ---
 

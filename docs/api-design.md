@@ -87,11 +87,11 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/documents/upload` | JWT | Upload PDF. Body: `multipart/form-data` with `file` + `projectId` |
+| POST | `/documents/upload` | JWT | Upload file (PDF, JPEG, PNG — max 50MB). Body: `multipart/form-data` with `file` + `projectId` |
 | GET | `/documents` | JWT | List documents with optional filters (see below) |
 | GET | `/documents/search` | JWT | Full-text search. `?q=query` |
 | GET | `/documents/:id` | JWT | Document metadata + 150-char text preview |
-| GET | `/documents/:id/text` | JWT | Full extracted text |
+| GET | `/documents/:id/text` | JWT | Full extracted text (PDFs only — images have no extracted text until OCR is added) |
 | GET | `/documents/:id/download` | JWT | Download original file |
 | DELETE | `/documents/:id` | JWT + ADMIN | Delete document and file |
 | POST | `/documents/bulk-delete` | JWT + ADMIN | Body: `{ documentIds: string[] }` |

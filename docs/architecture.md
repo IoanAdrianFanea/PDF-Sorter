@@ -16,7 +16,7 @@ NestJS API  (port 3000)
         ├── Projects module
         ├── Documents module
         ├── Exports module
-        └── Users module (internal, no controller yet)
+        └── Users module
         │
         ▼
 Prisma ORM
@@ -50,7 +50,7 @@ Rules:
 
 ### User
 - `id`, `email`, `passwordHash`, `role` (USER | ADMIN)
-- `fullName`, `language`, `timezone` (optional profile fields)
+- `fullName`, `language`, `timezone` (optional profile fields — language and timezone candidates for removal, see backlog)
 - `createdAt`, `updatedAt`
 
 ### Project
@@ -69,6 +69,7 @@ Rules:
 ### DocumentText
 - One-to-one with Document
 - `extractedText`, `pageCount`, `extractedAt`
+- Only created for PDF uploads — image uploads leave this empty until OCR is added (Phase 5)
 
 ### RefreshToken
 - `tokenHash` (never stored in plaintext)
@@ -87,8 +88,8 @@ Upload request
     → save file via BlobStore
     → update storageKey
     → set status: PROCESSING
-    → extract text (pdf-parse)
-    → save DocumentText
+    → if PDF: extract text (pdf-parse), save DocumentText
+    → if image: skip extraction
     → set status: PROCESSED
 
 On any failure:
@@ -101,11 +102,16 @@ On any failure:
 
 Files stored via `BlobStore` interface. Current implementation: `LocalBlobStore`.
 
-Storage key format: `{userId}/{documentId}.pdf`
+Storage key format: `{userId}/{documentId}.{ext}`
+
+Extension derived from mime type:
+- `application/pdf` → `.pdf`
+- `image/jpeg` → `.jpg`
+- `image/png` → `.png`
 
 Path on disk: `server/data/{storageKey}`
 
-The interface is designed to be swapped for an S3-compatible implementation in a later phase without changing business logic.
+The interface is designed to be swapped for an S3-compatible implementation in Phase 4 without changing business logic.
 
 ---
 
@@ -125,6 +131,8 @@ Enforced in the service layer, not the controller layer.
 
 - Upload: admins bypass membership check; users must have a `ProjectMembership` row
 - Delete: service checks `user.role === ADMIN` before proceeding
+- Project management: admin only (create, update, delete, manage members)
+- User management: admin only (list, create, set role); users can only fetch their own profile
 - Search and list: company-wide, no role restriction
 
 ---

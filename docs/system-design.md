@@ -6,7 +6,7 @@ Runtime behaviour of the system.
 
 ## Access Model
 
-1. User registers or logs in
+1. User logs in (or is created by an admin)
 2. User can browse all company documents
 3. User can upload to projects they are assigned to (admins can upload anywhere)
 4. Documents are visible across the company
@@ -34,15 +34,15 @@ UPLOADED → QUEUED → PROCESSING → PROCESSED
 
 ## Upload Flow
 
-1. User selects a project and file
+1. User selects a project and file (PDF, JPEG, or PNG — max 50MB)
 2. API validates JWT
 3. API checks membership (admin bypasses)
 4. Document record created (`status: UPLOADED`)
-5. File saved to `LocalBlobStore` (`server/data/{userId}/{documentId}.pdf`)
+5. File saved to `LocalBlobStore` (`server/data/{userId}/{documentId}.{ext}`)
 6. `storageKey` written back to document record
 7. `status` set to `PROCESSING`
-8. `pdf-parse` extracts text from file path
-9. `DocumentText` record created
+8. If PDF: `pdf-parse` extracts text, `DocumentText` record created
+9. If image: extraction skipped, no `DocumentText` record created
 10. `status` set to `PROCESSED`
 
 On any failure: `status` set to `FAILED`, `errorMessage` stored.
@@ -57,6 +57,7 @@ On any failure: `status` set to `FAILED`, `errorMessage` stored.
 4. Returns up to 20 results with contextual `<mark>` highlighted snippets
 5. User opens document detail or downloads
 
+Note: images without extracted text will only match on filename. OCR planned for Phase 5.
 Note: in-memory filtering is acceptable at current scale. SQL `LIKE` or FTS can replace it without changing the API contract.
 
 ---
@@ -85,3 +86,23 @@ Note: in-memory filtering is acceptable at current scale. SQL `LIKE` or FTS can 
 2. `POST /exports` with `documentIds`
 3. API streams a ZIP archive containing the selected files
 4. Browser downloads the archive
+
+---
+
+## Project Management Flow
+
+1. Admin creates a project via `POST /projects`
+2. Admin adds users to the project via `POST /projects/:id/members`
+3. Users assigned to the project can upload documents to it
+4. Admin can rename the project via `PATCH /projects/:id`
+5. Admin can remove members via `DELETE /projects/:id/members/:userId`
+6. Admin can delete the project via `DELETE /projects/:id` — permanently deletes all documents and memberships
+
+---
+
+## User Management Flow
+
+1. Admin creates a user via `POST /users` with a temporary password
+2. User logs in and should change their password (enforced manually for now — see backlog)
+3. Admin can change a user's role via `POST /users/:id/role`
+4. Users can only view their own profile; admins can view any profile
