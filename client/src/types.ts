@@ -8,6 +8,7 @@ export interface Document {
   status: DocumentStatus;
   uploadDate: string;
   uploadedBy?: string;
+  errorMessage?: string;
   pageCount?: number;
   extractedText?: string;
 }

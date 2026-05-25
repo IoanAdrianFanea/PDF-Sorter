@@ -1,4 +1,5 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
+import { DocumentStatus } from '@prisma/client';
 
 export type DocumentsSortBy =
   | 'upload-newest'
@@ -39,6 +40,10 @@ export class ListDocumentsQueryDto {
   @IsOptional()
   @IsString()
   deliveryDateTo?: string;
+
+  @IsOptional()
+  @IsEnum(DocumentStatus)
+  status?: DocumentStatus;
 
   @IsOptional()
   @IsIn(['upload-newest', 'upload-oldest', 'name-asc', 'name-desc', 'status'])

@@ -200,18 +200,12 @@ export class DocumentsService {
   }
 
   /**
-   * List all documents with optional filters/sorting
+   * Build document filters for list and counts
    */
-  async listDocuments(userId: string, query: ListDocumentsQueryDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
+  private buildDocumentsWhere(
+    query: ListDocumentsQueryDto,
+    options: { includeStatus?: boolean } = {},
+  ): Prisma.DocumentWhereInput {
     const whereClauses: Prisma.DocumentWhereInput[] = [];
 
     if (query.projectId) {
@@ -268,8 +262,27 @@ export class DocumentsService {
       whereClauses.push({ uploadedAt: uploadDateFilter });
     }
 
-    const where: Prisma.DocumentWhereInput =
-      whereClauses.length > 0 ? { AND: whereClauses } : {};
+    if (options.includeStatus !== false && query.status) {
+      whereClauses.push({ status: query.status });
+    }
+
+    return whereClauses.length > 0 ? { AND: whereClauses } : {};
+  }
+
+  /**
+   * List all documents with optional filters/sorting
+   */
+  async listDocuments(userId: string, query: ListDocumentsQueryDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const where = this.buildDocumentsWhere(query);
 
     const orderBy = this.getDocumentsOrderBy(query.sortBy);
 
@@ -311,6 +324,39 @@ export class DocumentsService {
       errorMessage: doc.errorMessage,
       uploadedByEmail: doc.uploadedBy.email,
     }));
+  }
+
+  async getStatusCounts(userId: string, query: ListDocumentsQueryDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const where = this.buildDocumentsWhere(query, { includeStatus: false });
+
+    const rows = await this.prisma.document.groupBy({
+      by: ['status'],
+      where,
+      _count: { status: true },
+    });
+
+    const counts = {
+      UPLOADED: 0,
+      QUEUED: 0,
+      PROCESSING: 0,
+      PROCESSED: 0,
+      FAILED: 0,
+    } as Record<DocumentStatus, number>;
+
+    for (const row of rows) {
+      counts[row.status] = row._count.status;
+    }
+
+    return counts;
   }
 
   private getDocumentsOrderBy(sortBy?: DocumentsSortBy): Prisma.DocumentOrderByWithRelationInput[] {

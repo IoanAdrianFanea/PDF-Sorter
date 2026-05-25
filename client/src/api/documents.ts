@@ -28,7 +28,16 @@ export interface ListDocumentsFilters {
   orderNumber?: string;
   deliveryDateFrom?: string;
   deliveryDateTo?: string;
+  status?: DocumentStatus;
   sortBy?: 'upload-newest' | 'upload-oldest' | 'name-asc' | 'name-desc' | 'status';
+}
+
+export interface DocumentStatusCounts {
+  UPLOADED: number;
+  QUEUED: number;
+  PROCESSING: number;
+  PROCESSED: number;
+  FAILED: number;
 }
 
 export interface UploadResponse {
@@ -113,6 +122,53 @@ export const documentsService = {
     }
 
     return response.json();
+  },
+
+  /**
+   * Get document status counts
+   */
+  async getStatusCounts(filters?: ListDocumentsFilters): Promise<DocumentStatusCounts> {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('Not authenticated');
+    }
+
+    const params = new URLSearchParams();
+    if (filters) {
+      const entries = Object.entries(filters) as Array<[keyof ListDocumentsFilters, string | undefined]>;
+      for (const [key, value] of entries) {
+        if (key === 'status' || key === 'sortBy') {
+          continue;
+        }
+        if (value && value.trim() !== '') {
+          params.set(key, value);
+        }
+      }
+    }
+
+    const queryString = params.toString();
+    const url = queryString ? `${API_URL}/documents/status-counts?${queryString}` : `${API_URL}/documents/status-counts`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch status counts');
+    }
+
+    const data = (await response.json()) as Partial<DocumentStatusCounts>;
+    return {
+      UPLOADED: data.UPLOADED ?? 0,
+      QUEUED: data.QUEUED ?? 0,
+      PROCESSING: data.PROCESSING ?? 0,
+      PROCESSED: data.PROCESSED ?? 0,
+      FAILED: data.FAILED ?? 0,
+    };
   },
 
   /**

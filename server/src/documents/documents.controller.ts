@@ -132,6 +132,22 @@ export class DocumentsController {
   }
 
   /**
+   * Get document status counts
+   */
+  @Get('status-counts')
+  async getStatusCounts(
+    @Request() req,
+    @Query() query: ListDocumentsQueryDto,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    return this.documentsService.getStatusCounts(userId, query);
+  }
+
+  /**
    * Get a single document by ID
    */
   @Get(':id')

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import type { Document } from '../types';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import type { Document, DocumentStatus } from '../types';
 import { documentsService } from '../api/documents';
 import type { Document as ApiDocument } from '../api/documents';
 import { projectsService, type Project } from '../api/projects';
@@ -9,6 +9,15 @@ import { DocumentTable } from '../components/documents/DocumentTable';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { BulkActionBar } from '../components/documents/BulkActionBar';
 import { ExportModal } from '../components/documents/ExportModal';
+
+const statusLabelMap: Record<DocumentStatus, string> = {
+  UPLOADED: 'Uploaded',
+  QUEUED: 'Queued',
+  PROCESSING: 'Processing',
+  PROCESSED: 'Processed',
+  FAILED: 'Failed',
+};
+const statusValues = new Set<DocumentStatus>(['UPLOADED', 'QUEUED', 'PROCESSING', 'PROCESSED', 'FAILED']);
 
 // Helper to convert API document to UI document
 const convertApiDocument = (apiDoc: ApiDocument): Document => {
@@ -31,6 +40,7 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
     status: apiDoc.status,
     uploadDate: formatDate(apiDoc.uploadedAt),
     uploadedBy: apiDoc.uploadedByEmail || 'Unknown',
+    errorMessage: apiDoc.errorMessage ?? undefined,
     pageCount: apiDoc.pageCount || undefined,
     extractedText: apiDoc.textPreview || undefined,
   };
@@ -39,6 +49,7 @@ const convertApiDocument = (apiDoc: ApiDocument): Document => {
 export default function Documents() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -68,6 +79,11 @@ export default function Documents() {
   const [deliveryToFilter, setDeliveryToFilter] = useState('');
 
   const materialTypeOptions = ['', 'Concrete', 'Steel', 'Lumber', 'Electrical', 'Plumbing'];
+  const statusFilter = useMemo(() => {
+    const statusParam = searchParams.get('status');
+    if (!statusParam) return undefined;
+    return statusValues.has(statusParam as DocumentStatus) ? (statusParam as DocumentStatus) : undefined;
+  }, [searchParams]);
 
   useEffect(() => {
     sessionStorage.setItem(projectStorageKey, selectedProjectId);
@@ -99,6 +115,7 @@ export default function Documents() {
           orderNumber: orderNumberFilter,
           deliveryDateFrom: deliveryFromFilter,
           deliveryDateTo: deliveryToFilter,
+          status: statusFilter,
           sortBy,
         });
         const convertedDocuments = apiDocuments.map(convertApiDocument);
@@ -122,6 +139,7 @@ export default function Documents() {
     orderNumberFilter,
     deliveryFromFilter,
     deliveryToFilter,
+    statusFilter,
     sortBy,
   ]);
 
@@ -166,6 +184,7 @@ export default function Documents() {
     materialTypeFilter ? { key: 'materialType', label: `Material Type: ${materialTypeFilter}` } : null,
     quantityFilter ? { key: 'quantity', label: `Quantity: ${quantityFilter}` } : null,
     orderNumberFilter ? { key: 'orderNumber', label: `Order #: ${orderNumberFilter}` } : null,
+    statusFilter ? { key: 'status', label: `Status: ${statusLabelMap[statusFilter]}` } : null,
     deliveryFromFilter || deliveryToFilter
       ? {
           key: 'deliveryDate',
@@ -252,6 +271,11 @@ export default function Documents() {
     if (key === 'materialType') setMaterialTypeFilter('');
     if (key === 'quantity') setQuantityFilter('');
     if (key === 'orderNumber') setOrderNumberFilter('');
+    if (key === 'status') {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('status');
+      setSearchParams(nextParams);
+    }
     if (key === 'deliveryDate') {
       setDeliveryFromFilter('');
       setDeliveryToFilter('');

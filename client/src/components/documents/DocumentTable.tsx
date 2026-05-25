@@ -1,4 +1,5 @@
 import type { Document } from '../../types';
+import { StatusBadge } from '../common/StatusBadge';
 
 interface DocumentTableProps {
   documents: Document[];
@@ -21,43 +22,6 @@ export function DocumentTable({
 }: DocumentTableProps) {
   const allSelected = documents.length > 0 && documents.every((doc) => selectedIds.has(doc.id));
   const someSelected = documents.some((doc) => selectedIds.has(doc.id)) && !allSelected;
-  const getStatusBadge = (status: Document['status']) => {
-    const variants = {
-      PROCESSED: {
-        bg: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-        dot: 'bg-green-500',
-        text: 'Success',
-      },
-      PROCESSING: {
-        bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-        dot: 'bg-blue-500 animate-pulse',
-        text: 'Processing',
-      },
-      FAILED: {
-        bg: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-        dot: 'bg-red-500',
-        text: 'Failed',
-      },
-      QUEUED: {
-        bg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-        dot: 'bg-amber-500',
-        text: 'Review',
-      },
-      UPLOADED: {
-        bg: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
-        dot: 'bg-slate-500',
-        text: 'Uploaded',
-      },
-    };
-
-    const variant = variants[status];
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${variant.bg}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${variant.dot}`}></span>
-        {variant.text}
-      </span>
-    );
-  };
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -79,10 +43,10 @@ export function DocumentTable({
               Document
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-              Uploaded By
+              Status
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-              Status
+              Uploaded By
             </th>
             <th className="py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Date Uploaded
@@ -134,10 +98,10 @@ export function DocumentTable({
                     </div>
                   </div>
                 </td>
-                <td className="py-3 px-2 text-sm text-slate-600 dark:text-slate-300">{doc.uploadedBy || 'Unknown'}</td>
                 <td className="py-3 px-2">
-                  {getStatusBadge(doc.status)}
+                  <StatusBadge status={doc.status} errorMessage={doc.errorMessage} />
                 </td>
+                <td className="py-3 px-2 text-sm text-slate-600 dark:text-slate-300">{doc.uploadedBy || 'Unknown'}</td>
                 <td className="py-3 px-2 text-sm text-slate-500">
                   {doc.uploadDate}
                 </td>

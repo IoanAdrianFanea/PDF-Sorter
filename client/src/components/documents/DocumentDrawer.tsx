@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Document } from '../../types';
 import { downloadDocument } from '../../api/exports';
+import { StatusBadge } from '../common/StatusBadge';
 
 interface DocumentDrawerProps {
   document: Document;
@@ -53,9 +54,12 @@ export function DocumentDrawer({ document, onClose, onDelete }: DocumentDrawerPr
         <div className="space-y-6">
           <div>
             <div className="flex items-start justify-between gap-4 mb-2">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white break-all leading-tight">
-                {document.fileName}
-              </h3>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white break-all leading-tight">
+                  {document.fileName}
+                </h3>
+                <StatusBadge status={document.status} errorMessage={document.errorMessage} />
+              </div>
               <button className="text-slate-400 hover:text-primary shrink-0 pt-1">
                 <span className="material-symbols-outlined text-[18px]">edit</span>
               </button>

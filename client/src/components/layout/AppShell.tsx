@@ -1,21 +1,71 @@
-import { useState, type ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ComingSoonToast } from '../common/ComingSoonToast';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { documentsService, type DocumentStatus, type DocumentStatusCounts } from '../../api/documents';
 
 interface AppShellProps {
   children: ReactNode;
 }
 
+const statusOptions: Array<{ label: string; value: DocumentStatus }> = [
+  { label: 'Uploaded', value: 'UPLOADED' },
+  { label: 'Queued', value: 'QUEUED' },
+  { label: 'Processing', value: 'PROCESSING' },
+  { label: 'Processed', value: 'PROCESSED' },
+  { label: 'Failed', value: 'FAILED' },
+];
+
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [comingSoonFeature, setComingSoonFeature] = useState<{ feature: string; phase: string } | null>(null);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [statusCounts, setStatusCounts] = useState<DocumentStatusCounts>({
+    UPLOADED: 0,
+    QUEUED: 0,
+    PROCESSING: 0,
+    PROCESSED: 0,
+    FAILED: 0,
+  });
   
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
+  const selectedStatus = useMemo(() => {
+    const statusParam = searchParams.get('status');
+    return statusOptions.find((status) => status.value === statusParam)?.value;
+  }, [searchParams]);
+  const statusFilters = useMemo(
+    () =>
+      statusOptions.map((status) => ({
+        ...status,
+        count: statusCounts[status.value],
+      })),
+    [statusCounts],
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadStatusCounts = async () => {
+      try {
+        const counts = await documentsService.getStatusCounts();
+        if (!isActive) return;
+        setStatusCounts(counts);
+      } catch (error) {
+        if (!isActive) return;
+        console.error('Failed to load document status counts', error);
+      }
+    };
+
+    loadStatusCounts();
+
+    return () => {
+      isActive = false;
+    };
+  }, [location.pathname]);
 
   // Handle search form submission
   const handleSearch = (e: React.FormEvent) => {
@@ -23,6 +73,21 @@ export function AppShell({ children }: AppShellProps) {
     if (searchQuery.trim().length >= 2) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
+  };
+
+  const handleStatusToggle = (status: DocumentStatus) => {
+    if (!isDocumentsPage) {
+      navigate(`/documents?status=${status}`);
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (selectedStatus === status) {
+      nextParams.delete('status');
+    } else {
+      nextParams.set('status', status);
+    }
+    setSearchParams(nextParams);
   };
 
   return (
@@ -130,57 +195,29 @@ export function AppShell({ children }: AppShellProps) {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</h3>
             </div>
             <div className="space-y-1">
-              <label 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setComingSoonFeature({ feature: 'Status Filtering', phase: 'Phase 2' });
-                }}
-                className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group"
-              >
-                <input
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white pointer-events-none"
-                  type="checkbox"
-                  readOnly
-                />
-                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                  Processed
-                </span>
-                <span className="text-xs text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">128</span>
-              </label>
-              <label 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setComingSoonFeature({ feature: 'Status Filtering', phase: 'Phase 2' });
-                }}
-                className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group"
-              >
-                <input
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white pointer-events-none"
-                  type="checkbox"
-                  readOnly
-                />
-                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                  Processing
-                </span>
-                <span className="text-xs text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">4</span>
-              </label>
-              <label 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setComingSoonFeature({ feature: 'Status Filtering', phase: 'Phase 2' });
-                }}
-                className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group"
-              >
-                <input
-                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white pointer-events-none"
-                  type="checkbox"
-                  readOnly
-                />
-                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                  Review Needed
-                </span>
-                <span className="text-xs text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">12</span>
-              </label>
+              {statusFilters.map((status) => (
+                <label
+                  key={status.label}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleStatusToggle(status.value);
+                  }}
+                  className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group"
+                >
+                  <input
+                    checked={selectedStatus === status.value}
+                    className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 bg-white pointer-events-none"
+                    type="checkbox"
+                    readOnly
+                  />
+                  <span className="flex-1 text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
+                    {status.label}
+                  </span>
+                  <span className="text-xs text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                    {status.count}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
 
