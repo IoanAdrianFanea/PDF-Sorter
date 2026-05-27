@@ -15,9 +15,9 @@ Status: **complete**
 - User admin endpoints (list, create, get, set role)
 - PDF + image upload (JPEG, PNG) with project association
 - PDF text extraction
-- Image upload without extraction (OCR planned for Phase 5)
-- 50MB file size limit
+- Image upload without extraction (OCR coming in Phase 3)
 - Document status tracking
+- Status indicator badges in UI
 - Full-text search with snippets
 - Document list with filtering and sorting
 - Document details and text preview
@@ -28,48 +28,80 @@ Status: **complete**
 
 ---
 
-## Phase 2 – Operational Usability
+## Phase 2 – Access, Admin Console & Auditability
 
-Status: **not started**
+Status: **next**
 
-- Formal metadata columns as real schema fields (supplier, delivery date, material type, quantity, order number)
-- Filtering and sorting based on those columns
-- Table-style document view (desktop layout)
-- Improved project navigation
-- Upload progress indicators
-- Processing and error state indicators
-- Better UX for large document lists
-
----
-
-## Phase 3 – Async Processing
-
-Status: **not started**
-
-- Queue-based document processing
-- Background text extraction with retry
-- Background export jobs
-- Job status endpoints
+- Admin console: project management page (create, rename, delete, list)
+- Admin console: project membership page (add/remove users)
+- Admin console: user management page (list, edit, change role)
+- Admin console: pending registrations queue
+- Project-scoped visibility (users see only assigned projects, admins see all)
+- Remove upload size limit
+- Self-registration with admin approval
+- Email verification on signup
+- Password policy
+- User self-service profile editing (name, email, password)
+- Delete logging with full audit trail
+- 30-day soft delete and recycle bin
+- Recycle bin / restore UI
 
 ---
 
-## Phase 4 – Deployment
+## Phase 3 – Custom Filters & Search
+
+Status: **not started**
+
+- Admin-configurable custom filter fields (max 5)
+- Filter management page
+- Search + filter combined for precise lookup
+- OCR for images (pulled forward from Phase 5)
+- Document-date filtering replaces upload-date filtering
+
+---
+
+## Phase 4 – Archive & Storage Structure
+
+Status: **not started**
+
+- Project archive (zip on archive, restore on unarchive)
+- Archive page
+- OneDrive folder structure (active / archived / deleted)
+- File compression above size threshold
+
+---
+
+## Phase 5 – Deployment
 
 Status: **not started**
 
 - HTTPS
-- S3-compatible object storage (replaces LocalBlobStore)
+- OneDrive integration (replaces LocalBlobStore)
+- SMTP for approval and verification emails
 - Structured logging
 - Environment configuration
 - Backup strategy
+- Print document button (if time allows)
 
 ---
 
-## Phase 5 – Future
+## Phase 6 – Async Processing
 
 Status: **not started**
 
-- OCR for scanned images and site photos
+- Queue-based document processing
+- Background text extraction (PDF and OCR)
+- Background compression and archive jobs
+- Retry on failure
+- Job status endpoints
+- Real Jobs page
+
+---
+
+## Phase 7 – Future
+
+Status: **not started**
+
+- Native app for all platforms (single app — laptop, tablet, phone)
 - Email attachment ingestion
 - Offline document access
-- Native app evaluation (Windows, Android)

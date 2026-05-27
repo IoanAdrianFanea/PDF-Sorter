@@ -4,11 +4,13 @@ Key decisions made during development, with rationale.
 
 ---
 
-## Shared Company Document Model
+## Project-Scoped Visibility
 
-Documents are company-visible by default.
+Non-admin users see only documents from projects they are assigned to. Admins see everything.
 
-Rationale: the workflow is collaborative. Users are not managing private libraries. The main business problem is retrieval speed, not user isolation. `uploadedBy` is stored for traceability but does not restrict access.
+Rationale: stakeholder requirement. Initially the system was company-wide visible, but feedback indicated users should not see documents from projects they have no involvement in. Admins retain full visibility for oversight and management.
+
+Note: this reverses the earlier "Shared Company Document Model" decision. To be confirmed with stakeholder before Phase 2 implementation begins.
 
 ---
 
@@ -16,7 +18,7 @@ Rationale: the workflow is collaborative. Users are not managing private librari
 
 Projects are the primary organising entity. Documents belong to projects.
 
-Rationale: the business already organises documents by project. It matches how users look for things in real life.
+Rationale: the business already organises documents by project. Visibility, archive, and storage structure all align around projects.
 
 ---
 
@@ -24,50 +26,90 @@ Rationale: the business already organises documents by project. It matches how u
 
 Two roles: USER and ADMIN.
 
-- Users can upload to assigned projects, and browse/search/download/export everything
-- Admins can do all of that plus delete documents, manage projects, and manage users
+- Users can upload, search, download, and export within their assigned projects
+- Admins can do all of that anywhere, plus manage projects, users, custom filters, archive, and recycle bin
 
-Rationale: shared visibility requires authorization boundaries. Delete and management actions must be restricted without complex permissions.
-
----
-
-## Upload Restricted to Assigned Projects (non-admins)
-
-Non-admin users can only upload to projects they are members of via `ProjectMembership`.
-
-Rationale: prevents users from adding documents to unrelated projects by mistake.
+Rationale: simpler than per-action permissions. The combination of role + project membership covers every access need so far.
 
 ---
 
-## Admin-Only Delete
+## Self-Registration with Admin Approval
 
-Only admins can delete documents.
+Users self-register, but accounts are `PENDING` until admin approves. Email verification is also required.
 
-Rationale: deletion is irreversible. In a shared company system, accidental or malicious deletion must be restricted.
-
----
-
-## Admin-Controlled User Creation
-
-Users are created by admins via `POST /users`. Self-registration via `POST /auth/register` still exists but may be restricted in a later phase.
-
-Rationale: for an internal company tool, it makes more sense for an admin to provision accounts rather than allow open sign-up.
+Rationale: an internal company tool can't accept open sign-ups. Admin approval prevents unauthorised access. Email verification prevents typos and confirms the user controls the address.
 
 ---
 
-## Image Upload Without OCR
+## Admin-Controlled Destructive Actions
 
-Images (JPEG, PNG) are accepted on upload but text extraction is skipped. Status is set to `PROCESSED` with no `DocumentText` record.
+Project deletion, user role changes, archive, permanent delete from recycle bin, and filter management are admin-only.
 
-Rationale: OCR requires a separate library (`tesseract.js`) and adds complexity. Storing images now without OCR unblocks the use case. OCR will be added in Phase 5 without changing the upload contract.
+Rationale: these actions affect other users' work. Centralising them under admin oversight reduces the chance of accidental loss.
 
 ---
 
-## Synchronous Processing First
+## Soft Delete with 30-Day Recovery
+
+Deleted documents are not removed immediately. They are marked deleted, logged, and moved to a `deleted/` storage location. After 30 days they are permanently removed.
+
+Rationale: deletion mistakes happen. A 30-day window lets admins restore accidentally deleted files without needing backups. Logging provides audit history.
+
+---
+
+## Project Archive with Zip Storage
+
+When a project is archived, all files are zipped. The project becomes inaccessible from main views but the zip is downloadable. Unarchive extracts the zip and restores the original structure.
+
+Rationale: completed projects don't need to clutter the working view. Zipping reduces storage and signals immutability. Reversibility matters because work sometimes resumes on "completed" projects.
+
+---
+
+## Custom Filters
+
+Admins define up to 5 custom filter fields. These become metadata fields on documents and search/filter options for users.
+
+Rationale: every construction firm uses different metadata (supplier, order number, material grade, etc.) and auto-extracting from raw PDF text is unreliable. A simple admin-defined schema lets each company configure what matters to them without code changes.
+
+---
+
+## Search and Filter Combined
+
+Search and filters apply together, not separately. Users can pre-filter and then search, or search and then narrow with filters.
+
+Rationale: the use case is "find this exact document" not "browse." Combining the two is essential for that.
+
+---
+
+## OCR Pulled Forward to Phase 3
+
+Images need OCR to be searchable. Originally Phase 5, now in Phase 3 alongside custom filters and search work.
+
+Rationale: site photos and scanned delivery notes are common. Without OCR, image-based documents are effectively invisible to search.
+
+---
+
+## File Compression Above a Threshold
+
+Large files are compressed before storage. Threshold tentatively set at 5MB. PDFs and JPEGs may be skipped as they are already compressed.
+
+Rationale: reduces cloud storage costs. Compressing small files saves negligible space while adding processing overhead — only worth doing above a threshold.
+
+---
+
+## OneDrive Folder Structure
+
+Storage is organised under a configurable root folder, with subfolders for `active`, `archived`, and `deleted`.
+
+Rationale: gives the admin a coherent view of all files outside the app. Reflects the access model directly: active projects are visible, archived projects are zipped, deleted files wait in a holding area.
+
+---
+
+## Synchronous Processing First, Async Later
 
 Text extraction runs synchronously on upload. No queue or worker yet.
 
-Rationale: simpler to build and debug. Still correct. A queue-based pipeline is planned for Phase 3 when scale demands it.
+Rationale: simpler to build and debug. A queue-based pipeline is planned for Phase 6 when scale or processing time demands it.
 
 ---
 
@@ -81,33 +123,23 @@ Rationale: zero infrastructure, fast iteration. Prisma abstracts the database la
 
 ## Storage Abstraction
 
-Files are stored behind a `BlobStore` interface. Current implementation is `LocalBlobStore`.
+Files stored behind a `BlobStore` interface. Current implementation is `LocalBlobStore`. OneDrive implementation in Phase 5.
 
-Rationale: keeps business logic storage-agnostic. An S3-compatible implementation can be added in Phase 4 without touching service code.
-
----
-
-## Storage Key Format
-
-Current: `{userId}/{documentId}.{ext}` where ext is derived from mime type.
-
-Extension mapping: `application/pdf` → `.pdf`, `image/jpeg` → `.jpg`, `image/png` → `.png`.
+Rationale: keeps business logic storage-agnostic. Migrating to cloud storage doesn't touch service code.
 
 ---
 
 ## Web-First Delivery
 
-The current frontend is a browser web app.
+The current frontend is a browser web app. Native app for all platforms (single app — laptop, tablet, phone) planned for Phase 7.
 
-Rationale: fastest way to validate workflows. Stakeholders have expressed interest in Windows and Android native apps. The backend is intentionally API-first so a native client can be added later. The web frontend is treated as the primary interface until workflows are stable enough to justify a native build.
+Rationale: fastest way to validate workflows. Once web is stable enough, a single cross-platform native app will replace the laptop web + native phone hybrid that was initially considered.
 
 ---
 
 ## No Tags
 
-Tags were removed as a core feature during the Phase 0.5 refactor.
-
-Projects are the organising structure. Tags added complexity without matching how the business actually groups documents.
+Tags were removed during the Phase 0.5 refactor. Projects and custom filters cover the organising and grouping needs.
 
 ---
 
@@ -118,4 +150,4 @@ Projects are the organising structure. Tags added complexity without matching ho
 - `create(email, passwordHash)` — used by auth during self-registration. Auth service handles hashing before calling this.
 - `createUser(dto)` — used by the admin endpoint. Accepts a plain password and hashes it internally.
 
-They serve different callers with different contracts. Merging them would either expose hashing logic to the auth service or force the admin endpoint into an awkward flow. Kept separate for clarity.
+They serve different callers with different contracts. Kept separate for clarity.

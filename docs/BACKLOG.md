@@ -4,6 +4,15 @@ Potential additions and improvements for future consideration.
 
 ---
 
+## To Confirm With Stakeholder
+
+- Project-scoped visibility (non-admins see only assigned projects) — confirm before Phase 2
+- Custom filters: available to all users vs creator-only — confirm before Phase 3
+- Compression threshold (suggested 5MB) — needs concrete number
+- Password policy specifics (length, character mix, etc.)
+
+---
+
 ## Language and Timezone Fields
 
 Remove `language` and `timezone` fields from the `User` schema. Stakeholder confirmed single language is needed — these fields are currently always null and serve no purpose.
@@ -12,40 +21,56 @@ Remove `language` and `timezone` fields from the `User` schema. Stakeholder conf
 
 ## Force Password Reset on First Login
 
-Add a `mustChangePassword` boolean field to `User`. When an admin creates a user via `POST /users`, set it to `true`. On first login, the frontend detects the flag and forces the user to the change password screen before accessing the app. On password change, flip to `false`.
+Add a `mustChangePassword` boolean field to `User`. When an admin creates a user via `POST /users`, set it to `true`. On first login, the frontend detects the flag and forces the user to the change password screen. Less relevant once self-registration is the default path, but useful for admin-created accounts.
 
 ---
 
-## Recycling Bin
+## Print Document Button
 
-When a project or document is deleted, move it to a recycling bin rather than permanently deleting. Both should be restorable by an admin. For now, deletion is permanent.
-
----
-
-## Project Deletion Cascade
-
-Deleting a project currently deletes all documents and files permanently. Revisit once the recycling bin feature is designed — deletion should move everything to the bin instead.
+Add a print button in the document actions section, with a preview. Low priority — included in Phase 5 if time allows, otherwise moves here.
 
 ---
 
 ## GET /projects/:id
 
-A single project detail endpoint was omitted since `GET /projects/:id/members` covers the membership use case and `GET /projects` covers listing. Add `GET /projects/:id` if the frontend needs to fetch a single project with full details (name + members) in one call.
+A single project detail endpoint was omitted since `GET /projects/:id/members` covers the membership use case and `GET /projects` covers listing. Add if the admin console needs to fetch a single project with members in one call.
 
 ---
 
 ## Restrict Self-Registration
 
-`POST /auth/register` is currently public. For an internal company tool, consider disabling it so only admins can create accounts via `POST /users`.
+`POST /auth/register` is currently public. Once admin approval is implemented in Phase 2, self-registration becomes safer. Optionally disable it entirely for closed-deployment customers.
 
 ---
 
-## OCR for Images
+## Email Attachment Ingestion
 
-Images are uploaded and stored but have no extracted text. Add `tesseract.js` to run OCR on JPEG/PNG uploads the same way `pdf-parse` handles PDFs. Planned for Phase 5.
+Forward an email with attachments to a project-specific address; attachments uploaded automatically. Phase 7.
 
 ---
 
-## Metadata Columns
+## Offline-Friendly Viewing
 
-`supplier`, `materialType`, `quantity`, `orderNumber`, `deliveryDate` are accepted as filter params but are not real schema columns — they fall back to text search on filename and extracted text. Add these as proper columns on `Document` in Phase 2 so filters are meaningful.
+Cache recently viewed documents for offline access. Phase 7.
+
+---
+
+## Native App for All Platforms
+
+Single app for laptop, tablet, and phone. To be evaluated after web is stable. Phase 7.
+
+---
+
+## Storage Limits per User or Project
+
+Originally considered but removed — stakeholder confirmed no upload quotas. Could be reintroduced if cloud costs become a concern.
+
+---
+
+## Permanent Project Deletion Cascade
+
+Permanent deletion (after 30-day window or via admin override) cascades:
+- All documents permanently removed
+- All deletion logs retained
+- ProjectMembership rows removed
+- DocumentFilterValue rows removed
