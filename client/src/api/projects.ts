@@ -28,6 +28,29 @@ export async function getProjects(): Promise<AdminProject[]> {
   return response.json();
 }
 
+export async function renameProject(id: string, name: string): Promise<AdminProject> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/projects/${id}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to rename project');
+  }
+
+  return response.json();
+}
+
 export interface Project {
   id: string;
   name: string;

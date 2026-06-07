@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
 import { getProjects, type AdminProject } from '../../api/projects';
+import { RenameProjectModal } from '../../components/admin/RenameProjectModal';
 
 export default function AdminProjects() {
   const [projects, setProjects] = useState<AdminProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [renamingProject, setRenamingProject] = useState<AdminProject | null>(null);
 
   useEffect(() => {
     getProjects()
@@ -15,8 +17,19 @@ export default function AdminProjects() {
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  const handleRenamed = (id: string, newName: string) => {
+    setProjects((prev) => prev.map((p) => p.id === id ? { ...p, name: newName } : p));
+  };
+
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
+      <RenameProjectModal
+        isOpen={renamingProject !== null}
+        projectId={renamingProject?.id ?? ''}
+        currentName={renamingProject?.name ?? ''}
+        onClose={() => setRenamingProject(null)}
+        onRenamed={handleRenamed}
+      />
       <div className="bg-surface pt-6 px-10 shrink-0 sticky top-0 z-10">
         <AdminTabs />
       </div>
@@ -70,7 +83,7 @@ export default function AdminProjects() {
                     <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Manage Members">
                       <span className="material-symbols-outlined text-[18px]">group_add</span>
                     </button>
-                    <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Rename">
+                    <button onClick={() => setRenamingProject(project)} className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Rename">
                       <span className="material-symbols-outlined text-[18px]">edit</span>
                     </button>
                     <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Archive">
