@@ -1,3 +1,4 @@
+import { useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -6,6 +7,69 @@ import Upload from './pages/Upload';
 import Jobs from './pages/Jobs';
 import Search from './pages/Search';
 import { AppShell } from './components/layout/AppShell';
+import { authService } from './api/auth';
+import AdminProjects from './pages/admin/AdminProjects';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminPending from './pages/admin/AdminPending';
+import AdminArchive from './pages/admin/AdminArchive';
+import AdminFilters from './pages/admin/AdminFilters';
+
+interface AdminGuardProps {
+  children: ReactNode;
+}
+
+function AdminGuard({ children }: AdminGuardProps) {
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+    const accessToken = sessionStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      setIsAdmin(false);
+      setIsChecking(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    authService
+      .getMe(accessToken)
+      .then((user) => {
+        if (!isActive) return;
+        setIsAdmin(user.role === 'ADMIN');
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setIsAdmin(false);
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setIsChecking(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  if (isChecking) {
+    return null;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+const renderAdminPage = (page: ReactNode) => (
+  <AdminGuard>
+    <AppShell>{page}</AppShell>
+  </AdminGuard>
+);
 
 function App() {
   return (
@@ -69,6 +133,19 @@ function App() {
             </AppShell>
           }
         />
+        <Route
+          path="/admin"
+          element={
+            <AdminGuard>
+              <Navigate to="/admin/projects" replace />
+            </AdminGuard>
+          }
+        />
+        <Route path="/admin/projects" element={renderAdminPage(<AdminProjects />)} />
+        <Route path="/admin/users" element={renderAdminPage(<AdminUsers />)} />
+        <Route path="/admin/pending" element={renderAdminPage(<AdminPending />)} />
+        <Route path="/admin/archive" element={renderAdminPage(<AdminArchive />)} />
+        <Route path="/admin/filters" element={renderAdminPage(<AdminFilters />)} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

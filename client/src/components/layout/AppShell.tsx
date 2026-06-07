@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ComingSoonToast } from '../common/ComingSoonToast';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { authService } from '../../api/auth';
 import { documentsService, type DocumentStatus, type DocumentStatusCounts } from '../../api/documents';
 
 interface AppShellProps {
@@ -21,8 +21,9 @@ export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [comingSoonFeature, setComingSoonFeature] = useState<{ feature: string; phase: string } | null>(null);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [statusCounts, setStatusCounts] = useState<DocumentStatusCounts>({
     UPLOADED: 0,
     QUEUED: 0,
@@ -33,6 +34,7 @@ export function AppShell({ children }: AppShellProps) {
   
   const isDocumentsPage = location.pathname.startsWith('/documents');
   const isJobsPage = location.pathname.startsWith('/jobs');
+  const isAdminPage = location.pathname.startsWith('/admin');
   const selectedStatus = useMemo(() => {
     const statusParam = searchParams.get('status');
     return statusOptions.find((status) => status.value === statusParam)?.value;
@@ -45,6 +47,38 @@ export function AppShell({ children }: AppShellProps) {
       })),
     [statusCounts],
   );
+
+  useEffect(() => {
+    let isActive = true;
+    const accessToken = sessionStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      setIsAdmin(false);
+      setIsCheckingAdmin(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    authService
+      .getMe(accessToken)
+      .then((user) => {
+        if (!isActive) return;
+        setIsAdmin(user.role === 'ADMIN');
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setIsAdmin(false);
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setIsCheckingAdmin(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -130,12 +164,6 @@ export function AppShell({ children }: AppShellProps) {
             <span>Upload</span>
           </Link>
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
-          <button 
-            onClick={() => setComingSoonFeature({ feature: 'Notifications', phase: 'Phase 2' })}
-            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-          >
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
           <button
             onClick={() => setIsProfileSettingsOpen(true)}
             className="h-9 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary transition-colors inline-flex items-center gap-1.5"
@@ -162,20 +190,6 @@ export function AppShell({ children }: AppShellProps) {
                 <span className="material-symbols-outlined text-[20px]">grid_view</span>
                 All Documents
               </Link>
-              <button
-                onClick={() => setComingSoonFeature({ feature: 'Favorites', phase: 'Phase 2' })}
-                className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full"
-              >
-                <span className="material-symbols-outlined text-[20px]">star</span>
-                Favorites
-              </button>
-              <button
-                onClick={() => setComingSoonFeature({ feature: 'Recent Documents', phase: 'Phase 2' })}
-                className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full"
-              >
-                <span className="material-symbols-outlined text-[20px]">history</span>
-                Recent
-              </button>
               <Link
                 className={`flex items-center gap-3 px-2 py-2 text-sm font-medium rounded-lg transition-colors ${
                   isJobsPage
@@ -187,6 +201,19 @@ export function AppShell({ children }: AppShellProps) {
                 <span className="material-symbols-outlined text-[20px]">work</span>
                 Jobs
               </Link>
+              {!isCheckingAdmin && isAdmin && (
+                <Link
+                  className={`flex items-center gap-3 px-2 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isAdminPage
+                      ? 'bg-white dark:bg-slate-800 text-primary shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                  to="/admin/projects"
+                >
+                  <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+                  Admin Console
+                </Link>
+              )}
             </nav>
           </div>
 
@@ -220,34 +247,11 @@ export function AppShell({ children }: AppShellProps) {
               ))}
             </div>
           </div>
-
-          <div className="mt-auto px-2">
-            <button
-              onClick={() => setComingSoonFeature({ feature: 'Storage Analytics', phase: 'Phase 2' })}
-              className="w-full bg-gradient-to-br from-primary/10 to-blue-500/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/30 hover:border-primary transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-2 text-primary font-semibold text-sm">
-                <span className="material-symbols-outlined text-[18px]">storage</span>
-                <span>Storage</span>
-              </div>
-              <div className="w-full bg-white dark:bg-slate-800 rounded-full h-1.5 mb-2 overflow-hidden">
-                <div className="bg-primary h-1.5 rounded-full" style={{ width: '75%' }}></div>
-              </div>
-              <p className="text-xs text-slate-500">7.5 GB of 10 GB used</p>
-            </button>
-          </div>
         </aside>
 
         {children}
       </div>
       </div>
-
-      <ComingSoonToast
-        isOpen={comingSoonFeature !== null}
-        onClose={() => setComingSoonFeature(null)}
-        feature={comingSoonFeature?.feature || ''}
-        phase={comingSoonFeature?.phase || ''}
-      />
 
       <ProfileSettingsModal
         isOpen={isProfileSettingsOpen}
