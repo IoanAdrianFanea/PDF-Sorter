@@ -11,7 +11,7 @@ export class ProjectsService {
   async listProjects(
     userId: string,
     scope: 'all' | 'uploadable' = 'all',
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<Array<{ id: string; name: string; createdAt: Date; _count: { memberships: number } }>> {
     if (scope === 'uploadable') {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -23,6 +23,8 @@ export class ProjectsService {
           select: {
             id: true,
             name: true,
+            createdAt: true,
+            _count: { select: { memberships: true } },
           },
           orderBy: { name: 'asc' },
         });
@@ -39,6 +41,8 @@ export class ProjectsService {
         select: {
           id: true,
           name: true,
+          createdAt: true,
+          _count: { select: { memberships: true } },
         },
         orderBy: { name: 'asc' },
       });
@@ -48,6 +52,8 @@ export class ProjectsService {
       select: {
         id: true,
         name: true,
+        createdAt: true,
+        _count: { select: { memberships: true } },
       },
       orderBy: { name: 'asc' },
     });
