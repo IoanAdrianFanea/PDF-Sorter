@@ -4,6 +4,7 @@ import { getProjects, type AdminProject } from '../../api/projects';
 import { RenameProjectModal } from '../../components/admin/RenameProjectModal';
 import { DeleteProjectModal } from '../../components/admin/DeleteProjectModal';
 import { ArchiveProjectModal } from '../../components/admin/ArchiveProjectModal';
+import { ManageMembersModal } from '../../components/admin/ManageMembersModal';
 
 export default function AdminProjects() {
   const [projects, setProjects] = useState<AdminProject[]>([]);
@@ -11,6 +12,7 @@ export default function AdminProjects() {
   const [renamingProject, setRenamingProject] = useState<AdminProject | null>(null);
   const [deletingProject, setDeletingProject] = useState<AdminProject | null>(null);
   const [archivingProject, setArchivingProject] = useState<AdminProject | null>(null);
+  const [managingProject, setManagingProject] = useState<AdminProject | null>(null);
 
   useEffect(() => {
     getProjects()
@@ -29,6 +31,16 @@ export default function AdminProjects() {
     setProjects((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const handleMembersUpdated = (id: string, addedCount: number) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, _count: { memberships: p._count.memberships + addedCount } }
+          : p,
+      ),
+    );
+  };
+
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
       <RenameProjectModal
@@ -45,6 +57,13 @@ export default function AdminProjects() {
         memberCount={deletingProject?._count.memberships ?? 0}
         onClose={() => setDeletingProject(null)}
         onDeleted={handleDeleted}
+      />
+      <ManageMembersModal
+        isOpen={managingProject !== null}
+        projectId={managingProject?.id ?? ''}
+        projectName={managingProject?.name ?? ''}
+        onClose={() => setManagingProject(null)}
+        onMembersUpdated={handleMembersUpdated}
       />
       <ArchiveProjectModal
         isOpen={archivingProject !== null}
@@ -101,7 +120,7 @@ export default function AdminProjects() {
                 <td className="px-6 py-5 text-on-surface-variant">{formatDate(project.createdAt)}</td>
                 <td className="px-6 py-5 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Manage Members">
+                    <button onClick={() => setManagingProject(project)} className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Manage Members">
                       <span className="material-symbols-outlined text-[18px]">group_add</span>
                     </button>
                     <button onClick={() => setRenamingProject(project)} className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Rename">

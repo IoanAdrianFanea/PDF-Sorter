@@ -74,6 +74,23 @@ export class UsersService {
     });
   }
 
+  // Search users by name or email (case-insensitive) - ADMIN ONLY
+  async searchUsers(query: string): Promise<Partial<User>[]> {
+    return this.prisma.user.findMany({
+      where: query
+        ? {
+            OR: [
+              { fullName: { contains: query } },
+              { email: { contains: query } },
+            ],
+          }
+        : undefined,
+      select: userSelect,
+      orderBy: { fullName: 'asc' },
+      take: 50,
+    });
+  }
+
   // Update user role
   async setUserRole(id: string, setUserDto: SetUserDto): Promise<Partial<User>> {
     return this.prisma.user.update({

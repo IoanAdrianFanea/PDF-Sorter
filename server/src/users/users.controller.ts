@@ -1,7 +1,7 @@
 import { CreateUserDto } from "./dto/CreateUser.dto";
 import { SetUserDto } from "./dto/SetUser.dto";;
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { Controller, UseGuards, Get, Post, Param, Body, Request, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { Controller, UseGuards, Get, Post, Param, Body, Request, Query, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { UsersService } from "./users.service";
 
 
@@ -50,6 +50,19 @@ export class UsersController {
             throw new BadRequestException('Only admins can access this resource');
         }
         return this.usersService.createUser(createUserDto);
+    }
+
+    // search users by name or email - ADMIN ONLY
+    @Get('search')
+    async searchUsers(
+        @Query('q') q: string,
+        @Request() req,
+    ) {
+        const userRole = req.user?.role;
+        if (userRole !== 'ADMIN') {
+            throw new BadRequestException('Only admins can access this resource');
+        }
+        return this.usersService.searchUsers(q ?? '');
     }
 
     // retrieve user by ID - ALL

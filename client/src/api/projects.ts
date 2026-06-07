@@ -70,6 +70,45 @@ export async function deleteProject(id: string): Promise<void> {
   }
 }
 
+export interface ProjectMember {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+  };
+}
+
+export async function getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/projects/${projectId}/members`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    credentials: 'include',
+  });
+
+  if (!response.ok) throw new Error('Failed to fetch project members');
+  return response.json();
+}
+
+export async function addProjectMember(projectId: string, userId: string): Promise<void> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/projects/${projectId}/members`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ userId }),
+  });
+
+  if (!response.ok) throw new Error('Failed to add member');
+}
+
 export interface Project {
   id: string;
   name: string;
