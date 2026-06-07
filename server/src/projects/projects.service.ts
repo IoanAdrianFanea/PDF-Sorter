@@ -64,6 +64,12 @@ export class ProjectsService {
       data: {
         name: CreateProjectDto.name,
       },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        _count: { select: { memberships: true } },
+      },
     });
   }
 

@@ -51,6 +51,29 @@ export async function renameProject(id: string, name: string): Promise<AdminProj
   return response.json();
 }
 
+export async function createProject(name: string): Promise<AdminProject> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/projects`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create project');
+  }
+
+  return response.json();
+}
+
 export async function deleteProject(id: string): Promise<void> {
   const accessToken = sessionStorage.getItem('accessToken');
   if (!accessToken) {

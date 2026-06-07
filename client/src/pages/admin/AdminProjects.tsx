@@ -5,6 +5,7 @@ import { RenameProjectModal } from '../../components/admin/RenameProjectModal';
 import { DeleteProjectModal } from '../../components/admin/DeleteProjectModal';
 import { ArchiveProjectModal } from '../../components/admin/ArchiveProjectModal';
 import { ManageMembersModal } from '../../components/admin/ManageMembersModal';
+import { CreateProjectModal } from '../../components/admin/CreateProjectModal';
 
 export default function AdminProjects() {
   const [projects, setProjects] = useState<AdminProject[]>([]);
@@ -13,6 +14,7 @@ export default function AdminProjects() {
   const [deletingProject, setDeletingProject] = useState<AdminProject | null>(null);
   const [archivingProject, setArchivingProject] = useState<AdminProject | null>(null);
   const [managingProject, setManagingProject] = useState<AdminProject | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     getProjects()
@@ -41,6 +43,10 @@ export default function AdminProjects() {
     );
   };
 
+  const handleCreated = (project: AdminProject) => {
+    setProjects((prev) => [...prev, project]);
+  };
+
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
       <RenameProjectModal
@@ -57,6 +63,11 @@ export default function AdminProjects() {
         memberCount={deletingProject?._count.memberships ?? 0}
         onClose={() => setDeletingProject(null)}
         onDeleted={handleDeleted}
+      />
+      <CreateProjectModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={handleCreated}
       />
       <ManageMembersModal
         isOpen={managingProject !== null}
@@ -77,7 +88,7 @@ export default function AdminProjects() {
       <div className="flex-1 overflow-y-auto p-10 max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-headline-sm font-headline font-bold text-on-surface">Projects</h1>
-          <button className="bg-primary text-on-primary px-4 py-2 rounded-lg flex items-center gap-2 text-label-md font-semibold hover:opacity-90 transition-opacity">
+          <button onClick={() => setShowCreateModal(true)} className="bg-primary text-on-primary px-4 py-2 rounded-lg flex items-center gap-2 text-label-md font-semibold hover:opacity-90 transition-opacity">
             <span className="material-symbols-outlined text-sm">add</span>
             New Project
           </button>
