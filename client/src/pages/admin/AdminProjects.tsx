@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
 import { getProjects, type AdminProject } from '../../api/projects';
 import { RenameProjectModal } from '../../components/admin/RenameProjectModal';
+import { DeleteProjectModal } from '../../components/admin/DeleteProjectModal';
+import { ArchiveProjectModal } from '../../components/admin/ArchiveProjectModal';
 
 export default function AdminProjects() {
   const [projects, setProjects] = useState<AdminProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [renamingProject, setRenamingProject] = useState<AdminProject | null>(null);
+  const [deletingProject, setDeletingProject] = useState<AdminProject | null>(null);
+  const [archivingProject, setArchivingProject] = useState<AdminProject | null>(null);
 
   useEffect(() => {
     getProjects()
@@ -21,6 +25,10 @@ export default function AdminProjects() {
     setProjects((prev) => prev.map((p) => p.id === id ? { ...p, name: newName } : p));
   };
 
+  const handleDeleted = (id: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+  };
+
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
       <RenameProjectModal
@@ -29,6 +37,19 @@ export default function AdminProjects() {
         currentName={renamingProject?.name ?? ''}
         onClose={() => setRenamingProject(null)}
         onRenamed={handleRenamed}
+      />
+      <DeleteProjectModal
+        isOpen={deletingProject !== null}
+        projectId={deletingProject?.id ?? ''}
+        projectName={deletingProject?.name ?? ''}
+        memberCount={deletingProject?._count.memberships ?? 0}
+        onClose={() => setDeletingProject(null)}
+        onDeleted={handleDeleted}
+      />
+      <ArchiveProjectModal
+        isOpen={archivingProject !== null}
+        projectName={archivingProject?.name ?? ''}
+        onClose={() => setArchivingProject(null)}
       />
       <div className="bg-surface pt-6 px-10 shrink-0 sticky top-0 z-10">
         <AdminTabs />
@@ -86,10 +107,10 @@ export default function AdminProjects() {
                     <button onClick={() => setRenamingProject(project)} className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Rename">
                       <span className="material-symbols-outlined text-[18px]">edit</span>
                     </button>
-                    <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Archive">
+                    <button onClick={() => setArchivingProject(project)} className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/50 rounded transition-colors" title="Archive">
                       <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                     </button>
-                    <button className="p-1.5 text-outline hover:text-error hover:bg-error-container/20 rounded transition-colors" title="Delete">
+                    <button onClick={() => setDeletingProject(project)} className="p-1.5 text-outline hover:text-error hover:bg-error-container/20 rounded transition-colors" title="Delete">
                       <span className="material-symbols-outlined text-[18px]">delete</span>
                     </button>
                   </div>

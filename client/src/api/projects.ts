@@ -51,6 +51,25 @@ export async function renameProject(id: string, name: string): Promise<AdminProj
   return response.json();
 }
 
+export async function deleteProject(id: string): Promise<void> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/projects/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete project');
+  }
+}
+
 export interface Project {
   id: string;
   name: string;
