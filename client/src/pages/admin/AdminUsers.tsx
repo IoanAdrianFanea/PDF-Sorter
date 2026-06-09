@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
+import { ChangeRoleModal } from '../../components/admin/ChangeRoleModal';
+import { DeleteUserModal } from '../../components/admin/DeleteUserModal';
 import { findAllUsers, type UserSummary } from '../../api/users';
 
 // Derives up to 2 uppercase initials from a name or falls back to the email
@@ -26,6 +28,10 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // roleTarget is the user whose role is being changed; null means modal closed
+  const [roleTarget, setRoleTarget] = useState<UserSummary | null>(null);
+  // deleteTarget is the user being deleted; null means modal closed
+  const [deleteTarget, setDeleteTarget] = useState<UserSummary | null>(null);
 
   // useEffect runs once on mount to load users from the API
   useEffect(() => {
@@ -35,8 +41,30 @@ export default function AdminUsers() {
       .finally(() => setLoading(false));
   }, []);
 
+  function handleRoleUpdated(updated: UserSummary) {
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+  }
+
+  function handleDeleted(userId: string) {
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+  }
+
   return (
-    <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
+    <>
+      <ChangeRoleModal
+        isOpen={roleTarget !== null}
+        user={roleTarget}
+        onClose={() => setRoleTarget(null)}
+        onUpdated={handleRoleUpdated}
+      />
+      <DeleteUserModal
+        isOpen={deleteTarget !== null}
+        user={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={handleDeleted}
+      />
+
+      <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="bg-surface pt-6 px-10 shrink-0 sticky top-0 z-10">
         <AdminTabs />
       </div>
@@ -151,12 +179,14 @@ export default function AdminUsers() {
                         <button
                           className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors"
                           title="Change Role"
+                          onClick={() => setRoleTarget(user)}
                         >
                           <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
                         </button>
                         <button
                           className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-lg transition-colors"
                           title="Delete"
+                          onClick={() => setDeleteTarget(user)}
                         >
                           <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
@@ -170,5 +200,6 @@ export default function AdminUsers() {
         </div>
       </div>
     </main>
+    </>
   );
 }

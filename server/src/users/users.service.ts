@@ -100,5 +100,10 @@ export class UsersService {
     });
   }
 
+  // Delete user by id - ADMIN ONLY
+  async deleteUser(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
 
 }
