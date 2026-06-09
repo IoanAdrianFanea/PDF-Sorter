@@ -1,6 +1,40 @@
+import { useEffect, useState } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
+import { findAllUsers, type UserSummary } from '../../api/users';
+
+// Derives up to 2 uppercase initials from a name or falls back to the email
+function getInitials(fullName: string | null, email: string): string {
+  if (fullName && fullName.trim()) {
+    const parts = fullName.trim().split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase();
+  }
+  return email.slice(0, 2).toUpperCase();
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  });
+}
 
 export default function AdminUsers() {
+  // useState holds the fetched user list, loading flag, and any error message
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // useEffect runs once on mount to load users from the API
+  useEffect(() => {
+    findAllUsers()
+      .then(setUsers)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load users'))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="bg-surface pt-6 px-10 shrink-0 sticky top-0 z-10">
@@ -44,6 +78,10 @@ export default function AdminUsers() {
             </div>
           </div>
 
+          {error && (
+            <p className="text-sm text-error bg-error-container/20 px-4 py-3 rounded-lg">{error}</p>
+          )}
+
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -58,9 +96,6 @@ export default function AdminUsers() {
                     Role
                   </th>
                   <th className="px-6 py-4 text-xs font-label uppercase tracking-wider text-on-surface-variant font-medium">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-xs font-label uppercase tracking-wider text-on-surface-variant font-medium">
                     Joined Date
                   </th>
                   <th className="px-6 py-4 text-xs font-label uppercase tracking-wider text-on-surface-variant font-medium text-right">
@@ -69,111 +104,66 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody className="text-sm">
-                <tr className="group border-b border-surface-container-low/50 last:border-0 transition-colors hover:bg-surface-container-low">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
-                        JD
+                {loading && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-on-surface-variant">
+                      Loading users…
+                    </td>
+                  </tr>
+                )}
+                {!loading && users.length === 0 && !error && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-on-surface-variant">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+                {users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="group border-b border-surface-container-low/50 last:border-0 transition-colors hover:bg-surface-container-low"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
+                          {getInitials(user.fullName, user.email)}
+                        </div>
+                        <span className="font-medium text-on-surface">
+                          {user.fullName || <span className="text-on-surface-variant italic">No name</span>}
+                        </span>
                       </div>
-                      <span className="font-medium text-on-surface">Jane Doe</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">jane.doe@example.com</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-md bg-tertiary-container text-on-tertiary-container text-xs font-medium">
-                      ADMIN
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary-container text-on-secondary-container text-xs font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      ACTIVE
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">Oct 12, 2023</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors" title="Edit">
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                      </button>
-                      <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors" title="Change Role">
-                        <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
-                      </button>
-                      <button className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-lg transition-colors" title="Delete">
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr className="group border-b border-surface-container-low/50 last:border-0 transition-colors hover:bg-surface-container-low">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-xs">
-                        JS
+                    </td>
+                    <td className="px-6 py-4 text-on-surface-variant">{user.email}</td>
+                    <td className="px-6 py-4">
+                      {user.role === 'ADMIN' ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-tertiary-container text-on-tertiary-container text-xs font-medium">
+                          ADMIN
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-surface-container-highest text-on-surface-variant text-xs font-medium">
+                          USER
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-on-surface-variant">{formatDate(user.createdAt)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors"
+                          title="Change Role"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
+                        </button>
+                        <button
+                          className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
                       </div>
-                      <span className="font-medium text-on-surface">John Smith</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">john.smith@example.com</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-md bg-surface-container-highest text-on-surface-variant text-xs font-medium">
-                      USER
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary-container text-on-secondary-container text-xs font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      ACTIVE
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">Nov 05, 2023</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors" title="Edit">
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                      </button>
-                      <button className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors" title="Change Role">
-                        <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
-                      </button>
-                      <button className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-lg transition-colors" title="Delete">
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr className="group border-b border-surface-container-low/50 last:border-0 transition-colors hover:bg-surface-container-low">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-xs border border-dashed border-outline-variant">
-                        AL
-                      </div>
-                      <span className="font-medium text-on-surface">Alice Lee</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">alice.lee@example.com</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-md bg-surface-container-highest text-on-surface-variant text-xs font-medium">
-                      USER
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-container-high text-on-surface-variant text-xs font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
-                      PENDING
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">-</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="text-xs font-medium text-primary hover:text-primary-dim px-2 py-1 bg-primary-container/30 rounded transition-colors mr-2">
-                        Resend
-                      </button>
-                      <button className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/30 rounded-lg transition-colors" title="Delete">
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

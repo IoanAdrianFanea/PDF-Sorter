@@ -28,3 +28,23 @@ export async function searchUsers(q: string): Promise<UserSummary[]> {
 
   return response.json();
 }
+
+export async function findAllUsers(): Promise<UserSummary[]> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+  
+  const response = await fetch(`${API_URL}/users`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
+
+  return response.json();
+}
