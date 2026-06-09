@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
 import { ChangeRoleModal } from '../../components/admin/ChangeRoleModal';
 import { DeleteUserModal } from '../../components/admin/DeleteUserModal';
+import { CreateUserModal } from '../../components/admin/CreateUserModal';
 import { findAllUsers, type UserSummary } from '../../api/users';
 
 type RoleFilter = 'ALL' | 'ADMIN' | 'USER';
@@ -42,6 +43,7 @@ export default function AdminUsers() {
   const [roleTarget, setRoleTarget] = useState<UserSummary | null>(null);
   // deleteTarget is the user being deleted; null means modal closed
   const [deleteTarget, setDeleteTarget] = useState<UserSummary | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Search / filter / sort state
   const [search, setSearch] = useState('');
@@ -109,8 +111,17 @@ export default function AdminUsers() {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   }
 
+  function handleCreated(user: UserSummary) {
+    setUsers((prev) => [user, ...prev]);
+  }
+
   return (
     <>
+      <CreateUserModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
       <ChangeRoleModal
         isOpen={roleTarget !== null}
         user={roleTarget}
@@ -137,9 +148,12 @@ export default function AdminUsers() {
               <p className="text-body-md text-on-surface-variant mt-1">Manage system access and roles.</p>
             </div>
             <div className="flex gap-3">
-              <button className="bg-surface-container-low hover:bg-surface-container-high text-on-surface px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="bg-surface-container-low hover:bg-surface-container-high text-on-surface px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
                 <span className="material-symbols-outlined text-[18px]">person_add</span>
-                Invite User
+                Create User
               </button>
             </div>
           </div>

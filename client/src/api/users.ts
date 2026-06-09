@@ -8,6 +8,37 @@ export interface UserSummary {
   createdAt: string;
 }
 
+export interface CreateUserPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  role: 'USER' | 'ADMIN';
+}
+
+export async function createUser(payload: CreateUserPayload): Promise<UserSummary> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message ?? 'Failed to create user');
+  }
+
+  return response.json();
+}
+
 export async function searchUsers(q: string): Promise<UserSummary[]> {
   const accessToken = sessionStorage.getItem('accessToken');
   if (!accessToken) {
