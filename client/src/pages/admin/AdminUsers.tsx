@@ -1,8 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { AdminTabs } from '../../components/admin/AdminTabs';
 import { ChangeRoleModal } from '../../components/admin/ChangeRoleModal';
 import { DeleteUserModal } from '../../components/admin/DeleteUserModal';
 import { findAllUsers, type UserSummary } from '../../api/users';
+
+type RoleFilter = 'ALL' | 'ADMIN' | 'USER';
+type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
+
+const SORT_LABELS: Record<SortOption, string> = {
+  newest: 'Newest first',
+  oldest: 'Oldest first',
+  'name-asc': 'Name A–Z',
+  'name-desc': 'Name Z–A',
+};
 
 // Derives up to 2 uppercase initials from a name or falls back to the email
 function getInitials(fullName: string | null, email: string): string {
@@ -33,6 +43,26 @@ export default function AdminUsers() {
   // deleteTarget is the user being deleted; null means modal closed
   const [deleteTarget, setDeleteTarget] = useState<UserSummary | null>(null);
 
+  // Search / filter / sort state
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState<RoleFilter>('ALL');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+
+  // Refs for click-outside-to-close
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   // useEffect runs once on mount to load users from the API
   useEffect(() => {
     findAllUsers()
@@ -40,6 +70,36 @@ export default function AdminUsers() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load users'))
       .finally(() => setLoading(false));
   }, []);
+
+  // useMemo derives the visible list from the full list + current search/filter/sort
+  // This avoids re-running the logic on every render unless its inputs change
+  const visibleUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    return [...users]
+      .filter((u) => {
+        if (filterRole !== 'ALL' && u.role !== filterRole) return false;
+        if (q) {
+          const name = (u.fullName ?? '').toLowerCase();
+          const email = u.email.toLowerCase();
+          return name.includes(q) || email.includes(q);
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'name-asc':
+            return (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email);
+          case 'name-desc':
+            return (b.fullName ?? b.email).localeCompare(a.fullName ?? a.email);
+          case 'oldest':
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          case 'newest':
+          default:
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+      });
+  }, [users, search, filterRole, sortBy]);
 
   function handleRoleUpdated(updated: UserSummary) {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
@@ -91,18 +151,96 @@ export default function AdminUsers() {
                 className="w-full bg-transparent border-none focus:ring-0 text-sm font-body text-on-surface placeholder-on-surface-variant p-0"
                 placeholder="Search users by name or email..."
                 type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="ml-1 text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 px-2">
-              <button className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 rounded-lg hover:bg-surface transition-colors">
-                <span className="material-symbols-outlined text-[18px]">filter_list</span>
-                Filter
-              </button>
+              {/* Filter dropdown */}
+              <div ref={filterRef} className="relative">
+                <button
+                  onClick={() => { setFilterOpen((o) => !o); setSortOpen(false); }}
+                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                    filterRole !== 'ALL'
+                      ? 'text-primary bg-primary-container/30 font-medium'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">filter_list</span>
+                  {filterRole === 'ALL' ? 'Filter' : filterRole}
+                  <span className="material-symbols-outlined text-[16px]">
+                    {filterOpen ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+                {filterOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-surface rounded-xl border border-outline-variant/20 shadow-lg z-20 overflow-hidden py-1">
+                    {(['ALL', 'ADMIN', 'USER'] as RoleFilter[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => { setFilterRole(option); setFilterOpen(false); }}
+                        className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
+                          filterRole === option
+                            ? 'text-primary bg-primary-container/20 font-medium'
+                            : 'text-on-surface hover:bg-surface-container-low'
+                        }`}
+                      >
+                        <span>{option === 'ALL' ? 'All roles' : option === 'ADMIN' ? 'Admin' : 'User'}</span>
+                        {filterRole === option && (
+                          <span className="material-symbols-outlined text-[16px]">check</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="w-px h-4 bg-outline-variant/30 mx-1"></div>
-              <button className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 rounded-lg hover:bg-surface transition-colors">
-                <span className="material-symbols-outlined text-[18px]">sort</span>
-                Sort
-              </button>
+
+              {/* Sort dropdown */}
+              <div ref={sortRef} className="relative">
+                <button
+                  onClick={() => { setSortOpen((o) => !o); setFilterOpen(false); }}
+                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                    sortBy !== 'newest'
+                      ? 'text-primary bg-primary-container/30 font-medium'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">sort</span>
+                  {sortBy !== 'newest' ? SORT_LABELS[sortBy] : 'Sort'}
+                  <span className="material-symbols-outlined text-[16px]">
+                    {sortOpen ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+                {sortOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-surface rounded-xl border border-outline-variant/20 shadow-lg z-20 overflow-hidden py-1">
+                    {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([option, label]) => (
+                      <button
+                        key={option}
+                        onClick={() => { setSortBy(option); setSortOpen(false); }}
+                        className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
+                          sortBy === option
+                            ? 'text-primary bg-primary-container/20 font-medium'
+                            : 'text-on-surface hover:bg-surface-container-low'
+                        }`}
+                      >
+                        <span>{label}</span>
+                        {sortBy === option && (
+                          <span className="material-symbols-outlined text-[16px]">check</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -139,14 +277,14 @@ export default function AdminUsers() {
                     </td>
                   </tr>
                 )}
-                {!loading && users.length === 0 && !error && (
+                {!loading && visibleUsers.length === 0 && !error && (
                   <tr>
                     <td colSpan={5} className="px-6 py-10 text-center text-on-surface-variant">
-                      No users found.
+                      {users.length === 0 ? 'No users found.' : 'No users match your search or filter.'}
                     </td>
                   </tr>
                 )}
-                {users.map((user) => (
+                {visibleUsers.map((user) => (
                   <tr
                     key={user.id}
                     className="group border-b border-surface-container-low/50 last:border-0 transition-colors hover:bg-surface-container-low"
