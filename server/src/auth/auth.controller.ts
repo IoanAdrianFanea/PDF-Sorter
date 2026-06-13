@@ -28,19 +28,11 @@ interface RequestWithUser extends Request {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // POST /auth/register - Create new user account
+  // POST /auth/register - Create new user account (returns pending message, no tokens)
   @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const { accessToken, refreshToken } = await this.authService.register(dto);
-
-    // Set refresh token in HttpOnly cookie
-    this.setRefreshTokenCookie(res, refreshToken);
-
-    // Return access token in response body
-    return { accessToken };
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   // POST /auth/login - Authenticate existing user

@@ -5,12 +5,23 @@ import { CreateUserDto } from './dto/CreateUser.dto';
 import { SetUserDto } from './dto/SetUser.dto';
 import * as argon2 from 'argon2';
 
+type AccountStatus = 'PENDING' | 'ACTIVE' | 'REJECTED';
+
 
 const userSelect = {
       id: true,
       email: true,
       fullName: true,
       role: true,
+      createdAt: true,
+  };
+
+const userSelectWithStatus = {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      accountStatus: true,
       createdAt: true,
   };
 
@@ -105,5 +116,22 @@ export class UsersService {
     await this.prisma.user.delete({ where: { id } });
   }
 
+  // Find users by account status - ADMIN ONLY
+  async findByAccountStatus(status: AccountStatus): Promise<Partial<User>[]> {
+    return this.prisma.user.findMany({
+      where: { accountStatus: status },
+      select: userSelectWithStatus,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  // Update a user's account status - ADMIN ONLY
+  async updateAccountStatus(id: string, status: AccountStatus): Promise<Partial<User>> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { accountStatus: status },
+      select: userSelectWithStatus,
+    });
+  }
 
 }

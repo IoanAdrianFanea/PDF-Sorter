@@ -26,6 +26,7 @@ model User {
   uploadedDocuments Document[]        @relation("UploadedBy")
   projectMemberships ProjectMembership[]
   refreshTokens RefreshToken[]
+  accountStatus  AccountStatus  @default(PENDING)
 }
 
 model Project {
@@ -103,4 +104,10 @@ enum DocumentStatus {
 enum UserRole {
   USER
   ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
 }

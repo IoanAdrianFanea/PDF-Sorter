@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { authService } from '../api/auth';
 
 export default function Register() {
-  const navigate = useNavigate();
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  // When true, registration succeeded and the user is awaiting admin approval
+  const [isPending, setIsPending] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -17,17 +18,8 @@ export default function Register() {
     const password = formData.get('password') as string;
 
     try {
-      // Step 1: Register the user
       await authService.register(email, password);
-      
-      // Step 2: Automatically log in after successful registration
-      const { accessToken } = await authService.login(email, password);
-      
-      // Store accessToken in memory (could use context/state management)
-      sessionStorage.setItem('accessToken', accessToken);
-      
-      // Step 3: Redirect to dashboard
-      navigate('/documents');
+      setIsPending(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -62,6 +54,28 @@ export default function Register() {
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-[420px] bg-white dark:bg-[#15202b] rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-200 dark:border-slate-800 p-8 sm:p-10">
+
+          {isPending ? (
+            <div className="text-center py-4">
+              <div className="inline-flex items-center justify-center size-14 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 mb-5">
+                <span className="material-symbols-outlined text-3xl">pending_actions</span>
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 tracking-tight">
+                Request submitted
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                Your account is pending admin approval. You'll be able to sign in once an administrator reviews your request.
+              </p>
+              <Link
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                to="/login"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                Back to sign in
+              </Link>
+            </div>
+          ) : (
+            <>
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center size-12 rounded-full bg-primary/5 text-primary mb-4">
               <span className="material-symbols-outlined text-2xl">person_add</span>
@@ -186,6 +200,8 @@ export default function Register() {
               Sign in
             </Link>
           </p>
+            </>
+          )}
         </div>
       </main>
 

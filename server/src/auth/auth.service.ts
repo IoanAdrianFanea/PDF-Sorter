@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -26,6 +27,11 @@ interface AuthTokens {
   refreshToken: string;
 }
 
+// Return type for registration (no tokens — user starts as PENDING)
+export interface RegisterResult {
+  message: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,8 +41,8 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  // Create new user account
-  async register(dto: RegisterDto): Promise<AuthTokens> {
+  // Create new user account — returns pending message, no tokens issued
+  async register(dto: RegisterDto): Promise<RegisterResult> {
     // Check if user already exists
     const existingUser = await this.usersService.findByEmail(dto.email);
     if (existingUser) {
@@ -46,11 +52,10 @@ export class AuthService {
     // Hash password
     const passwordHash = await argon2.hash(dto.password);
 
-    // Create user
-    const user = await this.usersService.create(dto.email, passwordHash);
+    // Create user (accountStatus defaults to PENDING via schema)
+    await this.usersService.create(dto.email, passwordHash);
 
-    // Generate tokens
-    return this.generateTokens(user);
+    return { message: 'Registration submitted. An admin will review your request.' };
   }
 
   // Authenticate existing user
@@ -65,6 +70,14 @@ export class AuthService {
     const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check account status — block access before issuing tokens
+    if (user.accountStatus === 'PENDING') {
+      throw new ForbiddenException('Your account is pending admin approval. You will be notified once access is granted.');
+    }
+    if (user.accountStatus === 'REJECTED') {
+      throw new ForbiddenException('Your access request has been rejected. Please contact an administrator.');
     }
 
     // Generate tokens

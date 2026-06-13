@@ -7,7 +7,7 @@ export interface LoginResponse {
 }
 
 export interface RegisterResponse {
-  accessToken: string;
+  message: string;
 }
 
 export interface User {
@@ -68,9 +68,6 @@ export const authService = {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Invalid email or password');
-      }
       const error = await response.json().catch(() => ({ message: 'Login failed' }));
       throw new Error(error.message || 'Login failed');
     }

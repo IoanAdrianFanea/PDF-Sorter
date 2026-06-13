@@ -1,11 +1,17 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+export type AccountStatus = 'PENDING' | 'ACTIVE' | 'REJECTED';
+
 export interface UserSummary {
   id: string;
   email: string;
   fullName: string | null;
   role: 'USER' | 'ADMIN';
   createdAt: string;
+}
+
+export interface UserWithStatus extends UserSummary {
+  accountStatus: AccountStatus;
 }
 
 export interface CreateUserPayload {
@@ -120,5 +126,56 @@ export async function deleteUser(userId: string): Promise<void> {
   if (!response.ok) {
     throw new Error('Failed to delete user');
   }
+}
+
+export async function getPendingUsers(): Promise<UserWithStatus[]> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/users/pending`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    credentials: 'include',
+  });
+
+  if (!response.ok) throw new Error('Failed to fetch pending users');
+  return response.json();
+}
+
+export async function getRejectedUsers(): Promise<UserWithStatus[]> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/users/rejected`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    credentials: 'include',
+  });
+
+  if (!response.ok) throw new Error('Failed to fetch rejected users');
+  return response.json();
+}
+
+export async function updateUserAccountStatus(
+  userId: string,
+  status: AccountStatus,
+): Promise<UserWithStatus> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/users/${encodeURIComponent(userId)}/status`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message ?? 'Failed to update account status');
+  }
+
+  return response.json();
 }
 

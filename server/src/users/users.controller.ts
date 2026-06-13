@@ -1,7 +1,8 @@
 import { CreateUserDto } from "./dto/CreateUser.dto";
-import { SetUserDto } from "./dto/SetUser.dto";;
+import { SetUserDto } from "./dto/SetUser.dto";
+import { UpdateAccountStatusDto } from "./dto/UpdateAccountStatus.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { Controller, UseGuards, Get, Post, Delete, Param, Body, Request, Query, BadRequestException, ForbiddenException, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, UseGuards, Get, Post, Delete, Patch, Param, Body, Request, Query, BadRequestException, ForbiddenException, HttpCode, HttpStatus } from "@nestjs/common";
 import { UsersService } from "./users.service";
 
 
@@ -63,6 +64,37 @@ export class UsersController {
             throw new BadRequestException('Only admins can access this resource');
         }
         return this.usersService.searchUsers(q ?? '');
+    }
+
+    // retrieve all pending users - ADMIN ONLY
+    @Get('pending')
+    async getPendingUsers(@Request() req) {
+        if (req.user?.role !== 'ADMIN') {
+            throw new ForbiddenException('Only admins can access this resource');
+        }
+        return this.usersService.findByAccountStatus('PENDING');
+    }
+
+    // retrieve all rejected users - ADMIN ONLY
+    @Get('rejected')
+    async getRejectedUsers(@Request() req) {
+        if (req.user?.role !== 'ADMIN') {
+            throw new ForbiddenException('Only admins can access this resource');
+        }
+        return this.usersService.findByAccountStatus('REJECTED');
+    }
+
+    // update account status (approve/reject) - ADMIN ONLY
+    @Patch(':id/status')
+    async updateAccountStatus(
+        @Param('id') id: string,
+        @Body() dto: UpdateAccountStatusDto,
+        @Request() req,
+    ) {
+        if (req.user?.role !== 'ADMIN') {
+            throw new ForbiddenException('Only admins can access this resource');
+        }
+        return this.usersService.updateAccountStatus(id, dto.status);
     }
 
     // delete user by ID - ADMIN ONLY
