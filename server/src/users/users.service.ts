@@ -13,6 +13,7 @@ const userSelect = {
       email: true,
       fullName: true,
       role: true,
+      accountStatus: true,
       createdAt: true,
   };
 

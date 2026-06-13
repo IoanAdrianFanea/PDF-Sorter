@@ -7,12 +7,11 @@ export interface UserSummary {
   email: string;
   fullName: string | null;
   role: 'USER' | 'ADMIN';
+  accountStatus: AccountStatus;
   createdAt: string;
 }
 
-export interface UserWithStatus extends UserSummary {
-  accountStatus: AccountStatus;
-}
+export interface UserWithStatus extends UserSummary {}
 
 export interface CreateUserPayload {
   fullName: string;
@@ -177,5 +176,29 @@ export async function updateUserAccountStatus(
   }
 
   return response.json();
+}
+
+// Bulk helpers — use allSettled so partial failures are handled gracefully
+
+export async function bulkDeleteUsers(ids: string[]): Promise<{ succeeded: string[]; failed: number }> {
+  const results = await Promise.allSettled(ids.map((id) => deleteUser(id)));
+  const succeeded = ids.filter((_, i) => results[i].status === 'fulfilled');
+  return { succeeded, failed: results.filter((r) => r.status === 'rejected').length };
+}
+
+export async function bulkUpdateAccountStatus(
+  ids: string[],
+  status: AccountStatus,
+): Promise<{ updated: UserWithStatus[]; succeededIds: string[]; failed: number }> {
+  const results = await Promise.allSettled(ids.map((id) => updateUserAccountStatus(id, status)));
+  const updated: UserWithStatus[] = [];
+  const succeededIds: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      updated.push(r.value);
+      succeededIds.push(ids[i]);
+    }
+  });
+  return { updated, succeededIds, failed: results.filter((r) => r.status === 'rejected').length };
 }
 
