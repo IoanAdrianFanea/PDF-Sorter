@@ -2,20 +2,38 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { authService } from '../api/auth';
 
+const PASSWORD_RULES = [
+  { label: 'At least 10 characters', test: (p: string) => p.length >= 10 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'One special character', test: (p: string) => /[!@#$%^&*()\-_=+\[\]{};':",.<>?/\\|`~]/.test(p) },
+];
+
 export default function Register() {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   // When true, registration succeeded and the user is awaiting admin approval
   const [isPending, setIsPending] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    // Client-side policy guard — gives a clear message before hitting the API
+    const allRulesMet = PASSWORD_RULES.every((rule) => rule.test(password));
+    if (!allRulesMet) {
+      setError('Password does not meet the requirements listed below.');
+      setPasswordTouched(true);
+      return;
+    }
+
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
 
     try {
       await authService.register(email, password);
@@ -137,8 +155,26 @@ export default function Register() {
                   placeholder="Create a password"
                   required
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setPasswordTouched(true)}
                 />
               </div>
+              {passwordTouched && (
+                <ul className="mt-2 space-y-1">
+                  {PASSWORD_RULES.map((rule) => {
+                    const passed = rule.test(password);
+                    return (
+                      <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {passed ? 'check_circle' : 'radio_button_unchecked'}
+                        </span>
+                        {rule.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             <button
