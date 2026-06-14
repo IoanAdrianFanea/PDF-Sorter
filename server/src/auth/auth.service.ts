@@ -4,12 +4,15 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -41,6 +44,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   // Create new user account — returns pending message, no tokens issued
@@ -54,10 +58,27 @@ export class AuthService {
     // Hash password
     const passwordHash = await argon2.hash(dto.password);
 
-    // Create user (accountStatus defaults to PENDING via schema)
-    await this.usersService.create(dto.email, passwordHash);
+    // Generate email verification token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    return { message: 'Registration submitted. An admin will review your request.' };
+    // Create user (accountStatus defaults to PENDING via schema)
+    await this.usersService.create(dto.email, passwordHash, tokenHash);
+
+    // Send verification email to the user (fire-and-forget — never fails the request)
+    void this.emailService.sendVerificationEmail(dto.email, rawToken);
+
+    // Notify all admins
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { email: true },
+    });
+    void this.emailService.sendAdminApprovalNotification(
+      dto.email,
+      admins.map((a) => a.email),
+    );
+
+    return { message: 'Registration submitted. Please check your email to verify your address. An admin will then review your request.' };
   }
 
   // Authenticate existing user
@@ -72,6 +93,11 @@ export class AuthService {
     const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check email verification — must verify before login is allowed
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException('Please verify your email address before signing in. Check your inbox for the verification link.');
     }
 
     // Check account status — block access before issuing tokens
@@ -231,6 +257,29 @@ export class AuthService {
       default:
         throw new BadRequestException('Invalid expiration format');
     }
+  }
+
+  // Verify email address using the raw token from the email link
+  async verifyEmail(rawToken: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerificationToken: tokenHash },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Invalid or expired verification link.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null, // clear — single-use
+      },
+    });
+
+    return { message: 'Email verified successfully. You can now sign in once your account is approved.' };
   }
 
   // Change own password (requires current password)

@@ -55,13 +55,14 @@ export class UsersService {
   }
 
   // Create new user with hashed password - REGISTERING
-  async create(email: string, passwordHash: string): Promise<User> {
+  async create(email: string, passwordHash: string, emailVerificationToken: string): Promise<User> {
     return this.prisma.user.create({
       data: {
         email,
         passwordHash,
         fullName: '',
         role: 'USER',
+        emailVerificationToken,
       },
     });
   }

@@ -162,4 +162,20 @@ export const authService = {
       throw new Error(error.message || 'Failed to change password');
     }
   },
+
+  /**
+   * GET /auth/verify-email?token=xxx — verify email from link in inbox
+   */
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${API_URL}/auth/verify-email?token=${encodeURIComponent(token)}`,
+      { method: 'GET' },
+    );
+
+    const data = await response.json().catch(() => ({ message: 'Unknown error' }));
+    if (!response.ok) {
+      throw new Error(data.message || 'Email verification failed');
+    }
+    return data as { message: string };
+  },
 };

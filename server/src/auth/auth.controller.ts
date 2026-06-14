@@ -4,12 +4,14 @@ import {
   Get,
   Patch,
   Body,
+  Query,
   Res,
   Req,
   UseGuards,
   HttpCode,
   HttpStatus,
   NotImplementedException,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
@@ -34,6 +36,16 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  // GET /auth/verify-email?token=xxx - Verify email address from link in email
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Query('token') token: string) {
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
+    }
+    return this.authService.verifyEmail(token);
   }
 
   // POST /auth/login - Authenticate existing user

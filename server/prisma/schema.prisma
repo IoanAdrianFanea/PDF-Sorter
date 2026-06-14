@@ -23,6 +23,8 @@ model User {
   language     String?
   timezone     String?
   mustChangePassword Boolean @default(false)
+  emailVerifiedAt    DateTime?
+  emailVerificationToken String?  // SHA-256 hash of the raw token sent in the email
 
   uploadedDocuments Document[]        @relation("UploadedBy")
   projectMemberships ProjectMembership[]

@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ExportsModule } from './exports/exports.module';
 import { ProjectsModule } from './projects/projects.module';
+import { EmailModule } from './email/email.module';
 import path from "path";
 
 @Module({
@@ -20,6 +21,7 @@ import path from "path";
     DocumentsModule,
     ExportsModule,
     ProjectsModule,
+    EmailModule,
   ],
   controllers: [],
   providers: [],
