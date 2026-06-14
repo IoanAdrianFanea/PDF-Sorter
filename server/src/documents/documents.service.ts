@@ -161,9 +161,23 @@ export class DocumentsService {
   /**
    * Get a single document by ID
    */
-  async getDocument(documentId: string, _userId: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
+  async getDocument(documentId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+      },
       include: {
         text: {
           select: {
@@ -200,13 +214,33 @@ export class DocumentsService {
   }
 
   /**
+   * Returns project IDs the user can access.
+   * Admins get null (no restriction). Regular users get their assigned project IDs.
+   */
+  private async getAccessibleProjectIds(
+    userId: string,
+    role: UserRole,
+  ): Promise<string[] | null> {
+    if (role === UserRole.ADMIN) return null;
+    const memberships = await this.prisma.projectMembership.findMany({
+      where: { userId },
+      select: { projectId: true },
+    });
+    return memberships.map((m) => m.projectId);
+  }
+
+  /**
    * Build document filters for list and counts
    */
   private buildDocumentsWhere(
     query: ListDocumentsQueryDto,
-    options: { includeStatus?: boolean } = {},
+    options: { includeStatus?: boolean; allowedProjectIds?: string[] | null } = {},
   ): Prisma.DocumentWhereInput {
     const whereClauses: Prisma.DocumentWhereInput[] = [];
+
+    if (options.allowedProjectIds !== undefined && options.allowedProjectIds !== null) {
+      whereClauses.push({ projectId: { in: options.allowedProjectIds } });
+    }
 
     if (query.projectId) {
       whereClauses.push({ projectId: query.projectId });
@@ -282,7 +316,8 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const where = this.buildDocumentsWhere(query);
+    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const where = this.buildDocumentsWhere(query, { allowedProjectIds });
 
     const orderBy = this.getDocumentsOrderBy(query.sortBy);
 
@@ -336,7 +371,8 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const where = this.buildDocumentsWhere(query, { includeStatus: false });
+    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const where = this.buildDocumentsWhere(query, { includeStatus: false, allowedProjectIds });
 
     const rows = await this.prisma.document.groupBy({
       by: ['status'],
@@ -378,9 +414,23 @@ export class DocumentsService {
   /**
    * Get extracted text for a document
    */
-  async getDocumentText(documentId: string, _userId: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
+  async getDocumentText(documentId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+      },
       include: {
         text: true,
       },
@@ -404,20 +454,31 @@ export class DocumentsService {
   /**
    * Search documents by filename and text content
    */
-  async searchDocuments(_userId: string, query: string) {
+  async searchDocuments(userId: string, query: string) {
     // Return empty results for invalid queries
     if (!query || query.trim().length < 2) {
       return { results: [] };
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+
     const lowerQuery = query.toLowerCase();
 
-    // Company-wide visibility for search results.
     const allDocuments = await this.prisma.document.findMany({
       where: {
         text: {
           isNot: null,
         },
+        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
       },
       include: {
         text: {

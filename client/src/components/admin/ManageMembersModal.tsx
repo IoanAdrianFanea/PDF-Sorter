@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getProjectMembers, addProjectMember, type ProjectMember } from '../../api/projects';
+import { getProjectMembers, addProjectMember, removeProjectMember, type ProjectMember } from '../../api/projects';
 import { searchUsers, type UserSummary } from '../../api/users';
 
 interface ManageMembersModalProps {
@@ -36,6 +36,7 @@ export function ManageMembersModal({
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +106,25 @@ export function ManageMembersModal({
       setError('Failed to add some members. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    setRemovingId(userId);
+    setError('');
+    try {
+      await removeProjectMember(projectId, userId);
+      setCurrentMembers((prev) => prev.filter((m) => m.user.id !== userId));
+      setMemberIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+      onMembersUpdated(projectId, -1);
+    } catch {
+      setError('Failed to remove member. Please try again.');
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -282,7 +302,7 @@ export function ManageMembersModal({
               )}
             </div>
 
-            {/* Current members (informational) */}
+            {/* Current members */}
             <div className="shrink-0 border-t border-outline-variant/10 pt-3">
               <p className="text-label-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
                 Current members
@@ -295,13 +315,23 @@ export function ManageMembersModal({
                   <p className="text-label-sm text-on-surface-variant/60 italic">None yet.</p>
                 ) : (
                   currentMembers.map((m) => (
-                    <div key={m.user.id} className="flex items-center gap-2 px-1 py-1">
+                    <div key={m.user.id} className="flex items-center gap-2 px-1 py-1 group">
                       <div className="w-5 h-5 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center text-[9px] font-bold shrink-0">
                         {getInitials(m.user.fullName, m.user.email)}
                       </div>
-                      <span className="text-label-sm text-on-surface-variant truncate">
+                      <span className="flex-1 min-w-0 text-label-sm text-on-surface-variant truncate">
                         {m.user.fullName || m.user.email}
                       </span>
+                      <button
+                        onClick={() => handleRemoveMember(m.user.id)}
+                        disabled={removingId === m.user.id}
+                        title="Remove from project"
+                        className="shrink-0 text-on-surface-variant/40 hover:text-error transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {removingId === m.user.id ? 'hourglass_empty' : 'person_remove'}
+                        </span>
+                      </button>
                     </div>
                   ))
                 )}

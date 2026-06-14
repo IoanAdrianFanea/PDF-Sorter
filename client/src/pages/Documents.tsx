@@ -92,7 +92,7 @@ export default function Documents() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const data = await projectsService.listProjects();
+        const data = await projectsService.listProjects('uploadable');
         setProjects(data);
       } catch (err) {
         console.error('Failed to fetch projects:', err);

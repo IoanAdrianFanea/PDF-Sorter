@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService } from '../../api/auth';
 
 interface ProfileSettingsModalProps {
@@ -56,6 +57,7 @@ function normalizeTimezone(value: string | null): string {
 }
 
 export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -178,6 +180,20 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     } finally {
       setIsSavingProfile(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (accessToken) {
+      try {
+        await authService.logout(accessToken);
+      } catch {
+        // proceed with local cleanup even if the server call fails
+      }
+    }
+    sessionStorage.removeItem('accessToken');
+    onClose();
+    navigate('/login');
   };
 
   if (!isOpen) {
@@ -420,7 +436,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
 
         {activeTab === 'profile' ? (
           <footer className="px-7 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/60 dark:bg-slate-900">
-            <button type="button" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+            <button type="button" onClick={handleSignOut} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
               <span className="material-symbols-outlined text-[16px]">logout</span>
               Sign out of session
             </button>

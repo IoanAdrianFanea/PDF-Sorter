@@ -132,6 +132,21 @@ export async function addProjectMember(projectId: string, userId: string): Promi
   if (!response.ok) throw new Error('Failed to add member');
 }
 
+export async function removeProjectMember(projectId: string, userId: string): Promise<void> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/projects/${projectId}/members/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) throw new Error('Failed to remove member');
+}
+
 export interface Project {
   id: string;
   name: string;
