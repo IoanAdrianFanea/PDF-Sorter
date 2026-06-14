@@ -178,6 +178,34 @@ export async function updateUserAccountStatus(
   return response.json();
 }
 
+export interface AdminEditUserPayload {
+  fullName?: string;
+  email?: string;
+  password?: string;
+}
+
+export async function adminEditUser(userId: string, payload: AdminEditUserPayload): Promise<UserSummary> {
+  const accessToken = sessionStorage.getItem('accessToken');
+  if (!accessToken) throw new Error('Not authenticated');
+
+  const response = await fetch(`${API_URL}/users/${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message ?? 'Failed to update user');
+  }
+
+  return response.json();
+}
+
 // Bulk helpers — use allSettled so partial failures are handled gracefully
 
 export async function bulkDeleteUsers(ids: string[]): Promise<{ succeeded: string[]; failed: number }> {

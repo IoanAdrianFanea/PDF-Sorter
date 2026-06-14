@@ -17,10 +17,13 @@ export default function Login() {
     const password = formData.get('password') as string;
 
     try {
-      const { accessToken } = await authService.login(email, password);
-      // Store accessToken in memory (could use context/state management)
+      const { accessToken, mustChangePassword } = await authService.login(email, password);
       sessionStorage.setItem('accessToken', accessToken);
-      navigate('/documents');
+      if (mustChangePassword) {
+        navigate('/change-password');
+      } else {
+        navigate('/documents');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

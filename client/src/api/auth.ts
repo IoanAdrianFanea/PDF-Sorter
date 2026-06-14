@@ -4,6 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 // Auth API response types
 export interface LoginResponse {
   accessToken: string;
+  mustChangePassword: boolean;
 }
 
 export interface RegisterResponse {
@@ -136,5 +137,29 @@ export const authService = {
     }
 
     return response.json();
+  },
+
+  /**
+   * PATCH /auth/me/password - Change own password
+   */
+  async changePassword(
+    accessToken: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/me/password`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to change password' }));
+      throw new Error(error.message || 'Failed to change password');
+    }
   },
 };

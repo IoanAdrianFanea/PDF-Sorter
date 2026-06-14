@@ -1,6 +1,7 @@
 import { CreateUserDto } from "./dto/CreateUser.dto";
 import { SetUserDto } from "./dto/SetUser.dto";
 import { UpdateAccountStatusDto } from "./dto/UpdateAccountStatus.dto";
+import { AdminEditUserDto } from "./dto/AdminEditUser.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Controller, UseGuards, Get, Post, Delete, Patch, Param, Body, Request, Query, BadRequestException, ForbiddenException, HttpCode, HttpStatus } from "@nestjs/common";
 import { UsersService } from "./users.service";
@@ -38,6 +39,19 @@ export class UsersController {
             throw new BadRequestException('Only admins can access this resource');
         }
         return this.usersService.setUserRole(id, setUserDto);
+    }
+
+    // edit user profile (name, email, password) - ADMIN ONLY
+    @Patch(':id')
+    async adminEditUser(
+        @Param('id') id: string,
+        @Body() dto: AdminEditUserDto,
+        @Request() req,
+    ) {
+        if (req.user?.role !== 'ADMIN') {
+            throw new ForbiddenException('Only admins can access this resource');
+        }
+        return this.usersService.adminEditUser(id, dto);
     }
 
     // create new user - ADMIN ONLY

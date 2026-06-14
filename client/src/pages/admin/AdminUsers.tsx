@@ -3,6 +3,7 @@ import { AdminTabs } from '../../components/admin/AdminTabs';
 import { ChangeRoleModal } from '../../components/admin/ChangeRoleModal';
 import { DeleteUserModal } from '../../components/admin/DeleteUserModal';
 import { CreateUserModal } from '../../components/admin/CreateUserModal';
+import { EditUserModal } from '../../components/admin/EditUserModal';
 import {
   findAllUsers,
   bulkDeleteUsers,
@@ -101,6 +102,7 @@ export default function AdminUsers() {
   const [error, setError] = useState<string | null>(null);
   const [roleTarget, setRoleTarget] = useState<UserSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserSummary | null>(null);
+  const [editTarget, setEditTarget] = useState<UserSummary | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Toolbar state
@@ -209,6 +211,10 @@ export default function AdminUsers() {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   }
 
+  function handleUserUpdated(updated: UserSummary) {
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+  }
+
   function handleDeleted(userId: string) {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     setSelected((prev) => { const next = new Set(prev); next.delete(userId); return next; });
@@ -240,6 +246,7 @@ export default function AdminUsers() {
       <CreateUserModal isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
       <ChangeRoleModal isOpen={roleTarget !== null} user={roleTarget} onClose={() => setRoleTarget(null)} onUpdated={handleRoleUpdated} />
       <DeleteUserModal isOpen={deleteTarget !== null} user={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={handleDeleted} />
+      <EditUserModal isOpen={editTarget !== null} user={editTarget} onClose={() => setEditTarget(null)} onUpdated={handleUserUpdated} />
 
       {bulkDeleteOpen && (
         <BulkConfirmModal
@@ -497,6 +504,13 @@ export default function AdminUsers() {
                         <td className="px-6 py-4 text-on-surface-variant">{formatDate(user.createdAt)}</td>
                         <td className="px-6 py-4 text-right" data-no-select="">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors"
+                              title="Edit User"
+                              onClick={() => setEditTarget(user)}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
                             <button
                               className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-colors"
                               title="Change Role"

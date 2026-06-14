@@ -15,6 +15,7 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ProfileDto } from './dto/UpdateMe.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { User } from '@prisma/client';
@@ -42,13 +43,13 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken } = await this.authService.login(dto);
+    const { accessToken, refreshToken, mustChangePassword } = await this.authService.login(dto);
 
     // Set refresh token in HttpOnly cookie
     this.setRefreshTokenCookie(res, refreshToken);
 
-    // Return access token in response body
-    return { accessToken };
+    // Return access token in response body (+ flag for forced password change)
+    return { accessToken, mustChangePassword };
   }
 
   // POST /auth/refresh - Get new access token using refresh token from cookie
@@ -105,7 +106,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateMe(@Req() req: RequestWithUser, @Body() dto: ProfileDto) {
     return this.authService.updateMe(req.user.id, dto);
-  } 
+  }
+
+  // PATCH /auth/me/password - Change own password (requires current password)
+  @Patch('me/password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changePassword(@Req() req: RequestWithUser, @Body() dto: ChangePasswordDto) {
+    await this.authService.changePassword(req.user.id, dto);
+  }
 
   // Set refresh token in HttpOnly cookie (secure, not accessible via JavaScript)
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {

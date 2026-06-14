@@ -21,7 +21,8 @@ model User {
   updatedAt    DateTime @updatedAt
   fullName     String?
   language     String?
-  timezone     String?  
+  timezone     String?
+  mustChangePassword Boolean @default(false)
 
   uploadedDocuments Document[]        @relation("UploadedBy")
   projectMemberships ProjectMembership[]

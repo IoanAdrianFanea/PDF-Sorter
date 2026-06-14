@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 import { CreateUserDto } from './dto/CreateUser.dto';
 import { SetUserDto } from './dto/SetUser.dto';
+import { AdminEditUserDto } from './dto/AdminEditUser.dto';
 import * as argon2 from 'argon2';
 
 type AccountStatus = 'PENDING' | 'ACTIVE' | 'REJECTED';
@@ -74,8 +75,49 @@ export class UsersService {
             passwordHash,
             fullName: createUserDto.fullName,
             role: createUserDto.role,
+            // Admin-created accounts are immediately active; no approval needed.
+            accountStatus: 'ACTIVE',
+            // Force the user to change this temporary password on first login.
+            mustChangePassword: true,
         },
         select: userSelect,
+    });
+  }
+
+  // Edit a user's profile (admin) — name, email, or set a new temporary password
+  async adminEditUser(id: string, dto: AdminEditUserDto): Promise<Partial<User>> {
+    const data: Record<string, unknown> = {};
+
+    if (dto.fullName !== undefined) {
+      data.fullName = dto.fullName.trim() || null;
+    }
+
+    if (dto.email !== undefined) {
+      const trimmed = dto.email.trim().toLowerCase();
+      // Ensure email uniqueness
+      const existing = await this.prisma.user.findUnique({ where: { email: trimmed } });
+      if (existing && existing.id !== id) {
+        throw new ConflictException('Email is already in use');
+      }
+      data.email = trimmed;
+    }
+
+    if (dto.password !== undefined) {
+      data.passwordHash = await argon2.hash(dto.password);
+      // Force user to change this temporary password on next login
+      data.mustChangePassword = true;
+    }
+
+    if (Object.keys(data).length === 0) {
+      const user = await this.prisma.user.findUnique({ where: { id }, select: userSelect });
+      if (!user) throw new NotFoundException('User not found');
+      return user;
+    }
+
+    return this.prisma.user.update({
+      where: { id },
+      data,
+      select: userSelect,
     });
   }
 

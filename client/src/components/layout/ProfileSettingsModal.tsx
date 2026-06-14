@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../api/auth';
 
+const PASSWORD_RULES = [
+  { label: 'At least 10 characters', test: (p: string) => p.length >= 10 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'One special character', test: (p: string) => /[!@#$%^&*()\-_=+\[\]{};':",.<>?/\\|`~]/.test(p) },
+];
+
 interface ProfileSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -69,11 +77,31 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
+
+  // Change password state
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [newPwTouched, setNewPwTouched] = useState(false);
+  const [isChangingPw, setIsChangingPw] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+
   const isProfileTab = activeTab === 'profile';
   const hasUnsavedChanges =
     fullName !== initialProfile.fullName ||
     language !== initialProfile.language ||
     timezone !== initialProfile.timezone;
+
+  // Reset password form when switching to security tab or closing
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'security') {
+      setCurrentPw('');
+      setNewPw('');
+      setNewPwTouched(false);
+      setPwError('');
+      setPwSuccess('');
+    }
+  }, [isOpen, activeTab]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -179,6 +207,38 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
       setProfileError(error instanceof Error ? error.message : 'Failed to save profile');
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    setNewPwTouched(true);
+
+    const allRulesMet = PASSWORD_RULES.every((r) => r.test(newPw));
+    if (!allRulesMet) {
+      setPwError('Please meet all password requirements.');
+      return;
+    }
+
+    const accessToken = sessionStorage.getItem('accessToken');
+    if (!accessToken) {
+      setPwError('Not authenticated.');
+      return;
+    }
+
+    setIsChangingPw(true);
+    try {
+      await authService.changePassword(accessToken, currentPw, newPw);
+      setPwSuccess('Password changed successfully.');
+      setCurrentPw('');
+      setNewPw('');
+      setNewPwTouched(false);
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : 'Failed to change password');
+    } finally {
+      setIsChangingPw(false);
     }
   };
 
@@ -351,40 +411,53 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                 <p className="text-sm text-slate-500 mt-1">Update your password to keep your account secure.</p>
               </div>
 
-              <div className="space-y-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
+              <form onSubmit={handleChangePassword} className="space-y-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Current Password</label>
                   <input
                     type="password"
-                    defaultValue="........"
+                    value={currentPw}
+                    required
+                    onChange={(e) => { setCurrentPw(e.target.value); setPwError(''); setPwSuccess(''); }}
                     className="w-full max-w-md h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
+                    placeholder="Enter current password"
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-md">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">New Password</label>
-                    <input
-                      type="password"
-                      defaultValue="........"
-                      className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Confirm Password</label>
-                    <input
-                      type="password"
-                      defaultValue="........"
-                      className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={newPw}
+                    required
+                    onChange={(e) => { setNewPw(e.target.value); setPwError(''); setPwSuccess(''); }}
+                    onBlur={() => setNewPwTouched(true)}
+                    className="w-full max-w-md h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
+                    placeholder="Create a strong password"
+                  />
+                  {newPwTouched && (
+                    <ul className="mt-2 space-y-1">
+                      {PASSWORD_RULES.map((rule) => {
+                        const passed = rule.test(newPw);
+                        return (
+                          <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                            <span className="material-symbols-outlined text-[14px]">{passed ? 'check_circle' : 'radio_button_unchecked'}</span>
+                            {rule.label}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
+                {pwError && <p className="text-xs text-red-600">{pwError}</p>}
+                {pwSuccess && <p className="text-xs text-emerald-600">{pwSuccess}</p>}
                 <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-semibold"
+                  type="submit"
+                  disabled={isChangingPw}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary hover:bg-blue-600 disabled:bg-blue-400 text-white text-sm font-semibold"
                 >
-                  Update Password
+                  {isChangingPw ? 'Updating…' : 'Update Password'}
                 </button>
-              </div>
+              </form>
 
               <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
                 <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100">Logged in devices</h4>

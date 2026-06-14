@@ -12,6 +12,7 @@ import { UsersService } from '../users/users.service';
 import * as argon2 from 'argon2';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { User } from '@prisma/client';
 import { ProfileDto } from './dto/UpdateMe.dto';
 
@@ -25,6 +26,7 @@ interface JwtPayload {
 interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  mustChangePassword: boolean;
 }
 
 // Return type for registration (no tokens — user starts as PENDING)
@@ -207,7 +209,7 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, mustChangePassword: user.mustChangePassword };
   }
 
   // Convert expiration string (e.g., '7d', '15m') to Date object
@@ -229,6 +231,35 @@ export class AuthService {
       default:
         throw new BadRequestException('Invalid expiration format');
     }
+  }
+
+  // Change own password (requires current password)
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isCurrentValid = await argon2.verify(user.passwordHash, dto.currentPassword);
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('New password must be different from the current password');
+    }
+
+    const newHash = await argon2.hash(dto.newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash, mustChangePassword: false },
+    });
+
+    // Revoke all refresh tokens so the user re-authenticates cleanly
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   async updateMe(userId: string, dto: ProfileDto): Promise<Omit<User, 'passwordHash'>> {
