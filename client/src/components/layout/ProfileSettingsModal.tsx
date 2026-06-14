@@ -430,12 +430,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                     value={newPw}
                     required
                     onChange={(e) => { setNewPw(e.target.value); setPwError(''); setPwSuccess(''); }}
-                    onBlur={() => setNewPwTouched(true)}
                     className="w-full max-w-md h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm"
                     placeholder="Create a strong password"
                   />
-                  {newPwTouched && (
-                    <ul className="mt-2 space-y-1">
+                  <ul className="mt-2 space-y-1">
                       {PASSWORD_RULES.map((rule) => {
                         const passed = rule.test(newPw);
                         return (
@@ -446,7 +444,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                         );
                       })}
                     </ul>
-                  )}
                 </div>
                 {pwError && <p className="text-xs text-red-600">{pwError}</p>}
                 {pwSuccess && <p className="text-xs text-emerald-600">{pwSuccess}</p>}
@@ -532,14 +529,8 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
             </div>
           </footer>
         ) : (
-          <footer className="px-7 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/60 dark:bg-slate-900">
-            <div>
-              <h4 className="text-sm font-bold text-red-600">Danger Zone</h4>
-              <p className="text-xs text-slate-500">Permanently delete your account and all associated data.</p>
-            </div>
-            <button type="button" className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
-              Delete Account
-            </button>
+          <footer className="px-7 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900">
+            <p className="text-xs text-slate-400">To delete your account, contact an administrator.</p>
           </footer>
         )}
       </div>

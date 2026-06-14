@@ -157,11 +157,9 @@ export default function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onBlur={() => setPasswordTouched(true)}
                 />
               </div>
-              {passwordTouched && (
-                <ul className="mt-2 space-y-1">
+              <ul className="mt-2 space-y-1">
                   {PASSWORD_RULES.map((rule) => {
                     const passed = rule.test(password);
                     return (
@@ -174,7 +172,6 @@ export default function Register() {
                     );
                   })}
                 </ul>
-              )}
             </div>
 
             <button

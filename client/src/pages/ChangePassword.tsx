@@ -110,12 +110,10 @@ export default function ChangePassword() {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                onBlur={() => setNewPasswordTouched(true)}
                 className="block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-11 px-3 transition-colors placeholder:text-slate-400"
                 placeholder="Create a strong password"
               />
-              {newPasswordTouched && (
-                <ul className="mt-2 space-y-1">
+              <ul className="mt-2 space-y-1">
                   {PASSWORD_RULES.map((rule) => {
                     const passed = rule.test(newPassword);
                     return (
@@ -133,7 +131,6 @@ export default function ChangePassword() {
                     );
                   })}
                 </ul>
-              )}
             </div>
 
             <button

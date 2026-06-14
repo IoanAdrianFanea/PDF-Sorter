@@ -397,31 +397,6 @@ export default function AdminUsers() {
               <p className="text-sm text-error bg-error-container/20 px-4 py-3 rounded-lg">{error}</p>
             )}
 
-            {/* Bulk action bar */}
-            {selected.size > 0 && (
-              <div className="flex items-center justify-between bg-primary-container/20 border border-primary/20 rounded-xl px-5 py-3">
-                <span className="text-sm font-medium text-primary">
-                  {n} user{n !== 1 ? 's' : ''} selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setBulkDeleteOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-error-container/30 text-error hover:bg-error-container/50 rounded-lg transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                    Delete selected
-                  </button>
-                  <button
-                    onClick={() => setSelected(new Set())}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-sm text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
-                    Clear
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Table */}
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
               <table className="w-full text-left border-collapse">
@@ -536,6 +511,32 @@ export default function AdminUsers() {
           </div>
         </div>
       </main>
+
+      {/* Fixed bulk action bar — floats at the bottom of the viewport, never shifts the grid */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 bg-surface shadow-xl border border-outline-variant/20 rounded-2xl px-5 py-3 pointer-events-auto">
+          <span className="text-sm font-medium text-on-surface">
+            {n} user{n !== 1 ? 's' : ''} selected
+          </span>
+          <div className="w-px h-4 bg-outline-variant/40" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBulkDeleteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-error-container/30 text-error hover:bg-error-container/50 rounded-lg transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+              Delete selected
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-sm text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
