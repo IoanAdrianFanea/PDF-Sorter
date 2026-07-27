@@ -16,7 +16,6 @@ export default function Register() {
   // When true, registration succeeded and the user is awaiting admin approval
   const [isPending, setIsPending] = useState(false);
   const [password, setPassword] = useState('');
-  const [passwordTouched, setPasswordTouched] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,7 +25,6 @@ export default function Register() {
     const allRulesMet = PASSWORD_RULES.every((rule) => rule.test(password));
     if (!allRulesMet) {
       setError('Password does not meet the requirements listed below.');
-      setPasswordTouched(true);
       return;
     }
 

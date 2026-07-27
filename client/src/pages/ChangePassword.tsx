@@ -19,7 +19,6 @@ export default function ChangePassword() {
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,7 +27,6 @@ export default function ChangePassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setNewPasswordTouched(true);
 
     if (!allRulesMet) {
       setError('Please meet all password requirements below.');

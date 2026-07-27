@@ -81,7 +81,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
   // Change password state
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
-  const [newPwTouched, setNewPwTouched] = useState(false);
   const [isChangingPw, setIsChangingPw] = useState(false);
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
@@ -97,7 +96,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     if (!isOpen || activeTab !== 'security') {
       setCurrentPw('');
       setNewPw('');
-      setNewPwTouched(false);
       setPwError('');
       setPwSuccess('');
     }
@@ -214,7 +212,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     e.preventDefault();
     setPwError('');
     setPwSuccess('');
-    setNewPwTouched(true);
 
     const allRulesMet = PASSWORD_RULES.every((r) => r.test(newPw));
     if (!allRulesMet) {
@@ -234,7 +231,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
       setPwSuccess('Password changed successfully.');
       setCurrentPw('');
       setNewPw('');
-      setNewPwTouched(false);
     } catch (err) {
       setPwError(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
