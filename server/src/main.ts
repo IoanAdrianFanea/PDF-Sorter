@@ -64,12 +64,14 @@ async function bootstrap() {
     const clientDist = join(__dirname, '..', '..', '..', 'client', 'dist');
     app.useStaticAssets(clientDist);
 
-    // Catch-all: any route not matched by the API returns index.html so
-    // React Router can take over client-side navigation.
-    app.use((_req: unknown, res: { sendFile: (p: string) => void }) => {
-      res.sendFile(join(clientDist, 'index.html'));
+    // Only serve index.html for non-API routes
+    app.use((req: any, res: any, next: any) => {
+        if (req.path.startsWith('/api')) {
+            return next();
+        }
+        res.sendFile(join(clientDist, 'index.html'));
     });
-  }
+}
 
   await app.listen(process.env.PORT ?? 3000);
 }
