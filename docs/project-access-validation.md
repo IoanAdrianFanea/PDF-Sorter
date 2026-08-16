@@ -1,15 +1,18 @@
 # Project Access Validation
 
 ## Goal
-Validate the refactor from owner-based document access to project-based upload permissions with company-wide document visibility.
+Validate the refactor from owner-based document access to project-based permissions with project-scoped document visibility.
+
+## Status
+Scenarios 1–4 were signed off against the original *company-wide visibility* behaviour. Visibility has since been tightened to project scope in Phase 2, so scenarios 1, 2 and 4 need re-running against the new behaviour, and scenario 5 is new.
 
 ## Scope
 This validation covers:
 - project listing
 - upload authorization
-- company-wide document visibility
+- project-scoped document visibility
 - export/download access
-- admin-only delete policy
+- delete policy
 
 ## Test Users
 - Admin user
@@ -39,11 +42,11 @@ This validation covers:
 - Cannot delete documents unless admin
 
 ### Result
-- [x] Passed
-- [ ] Failed
+- [x] Passed (against company-wide visibility)
+- [ ] Re-verified against project-scoped visibility
 
 ### Notes
-...
+`GET /projects` without `?scope=uploadable` still returns **all** projects to any authenticated user. Only `?scope=uploadable` filters by membership. Confirm whether the bare project list should also be scoped.
 
 ---
 
@@ -58,11 +61,11 @@ This validation covers:
 - Does not see unauthorized projects in `/projects`
 
 ### Result
-- [x] Passed
-- [ ] Failed
+- [x] Passed (against company-wide visibility)
+- [ ] Re-verified against project-scoped visibility
 
 ### Notes
-...
+Upload rejection is enforced (`ForbiddenException`). Project list scoping — see scenario 1 note.
 
 ---
 
@@ -96,7 +99,32 @@ This validation covers:
 - Delete is admin-only
 
 ### Result
-- [x] Passed
+- [x] Passed (against company-wide visibility)
+- [ ] Re-verified against project-scoped visibility
+
+### Notes
+...
+
+---
+
+## Scenario 5: Project-scoped visibility (new — not yet run)
+
+### Setup
+- regular-user-1 assigned to Project A only
+- Document A in Project A, Document B in Project B
+
+### Expected
+- `GET /documents` returns Document A only
+- `GET /documents/search` never surfaces Document B
+- `GET /documents/status-counts` counts Document A only
+- `GET /documents/:id` for Document B returns 404 (not 403)
+- `GET /documents/:id/text` for Document B returns 404
+- `GET /documents/:id/download` for Document B returns 404
+- `POST /exports` including Document B returns 404 and exports nothing
+- Admin gets all of the above unrestricted
+
+### Result
+- [ ] Passed
 - [ ] Failed
 
 ### Notes

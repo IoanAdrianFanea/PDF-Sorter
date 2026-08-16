@@ -1,5 +1,13 @@
 # Phase 0.5 – Product Realignment
 
+> **Historical record — completed.** This document captures the realignment that moved the
+> project from a personal PDF sorter to a project-based company document system. The domain
+> refactor it describes (roles, `Project`, `ProjectMembership`, documents attached to projects,
+> `ownerId` removed, tags dropped) is done and shipped as part of Phase 1. It is kept for
+> context on *why* the model looks the way it does. For current status see
+> [project-plan.md](./project-plan.md); some UI ideas here (table-based desktop workflow,
+> mobile-specific navigation, native clients) remain unbuilt and now live in Phase 7.
+
 This phase bridges the gap between the current web-based PDF sorter and the new target product: a project-based construction document system designed for company use.
 
 The goal of this phase is to avoid continuing development on features that no longer match the business need, and to reshape the system so implementation can continue in the right direction.

@@ -2,17 +2,20 @@
 
 A multi-user web application for uploading, organising, searching, and retrieving project-related documents for construction operations.
 
-Built for shared company use — documents are company-visible by default, organised by project, and access is controlled by role.
+Built for shared company use — documents are organised by project, and access is controlled by role plus project membership.
 
 ---
 
 ## What It Does
 
-- Authenticated users log in and browse documents across the company
+- Authenticated users log in and browse documents from the projects they are assigned to
+- Admins see and manage every project and document
 - Documents are grouped by project — projects are the primary organising unit
-- Users upload PDFs to projects they are assigned to
-- Uploaded PDFs are text-extracted and made searchable immediately
-- Full-text search with contextual snippets runs across all documents
+- Users upload PDFs, JPEGs and PNGs to projects they are assigned to
+- Uploaded PDFs are text-extracted on upload and made searchable immediately (images are stored without extraction until OCR lands in Phase 3)
+- Full-text search with contextual snippets runs across everything the user can see
+- Self-registration requires both email verification and admin approval
+- An admin console manages projects, memberships, users and pending registrations
 - Admins can delete documents and have unrestricted upload access
 - Selected documents can be downloaded individually or exported as a ZIP
 
@@ -34,6 +37,7 @@ Built for shared company use — documents are company-visible by default, organ
 - `pdf-parse` for text extraction
 - `archiver` for ZIP export
 - `cookie-parser` for HttpOnly refresh token cookie
+- `nodemailer` for verification and approval emails
 
 ---
 
@@ -73,7 +77,16 @@ JWT_ACCESS_SECRET="your-access-secret-here"
 JWT_REFRESH_SECRET="your-refresh-secret-here"
 JWT_ACCESS_TOKEN_EXPIRATION="15m"
 JWT_REFRESH_TOKEN_EXPIRATION="7d"
+
+# Optional — leave blank to log emails to the console instead of sending them
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM="DocIndex <noreply@yourdomain.com>"
 ```
+
+See `server/.env.example` for the full annotated list.
 
 Apply database migrations and start:
 
@@ -111,12 +124,14 @@ VITE_API_URL=http://localhost:3000
 Uploaded files are stored locally under `server/data/` at:
 
 ```
-server/data/{userId}/{documentId}.pdf
+server/data/{userId}/{documentId}.{ext}
 ```
+
+The extension is derived from the mime type (`pdf`, `jpg`, `png`).
 
 This directory is gitignored. It is created automatically on first upload.
 
-In a later phase this will be abstracted behind an S3-compatible interface using the existing `BlobStore` abstraction.
+Storage sits behind the `BlobStore` interface; the key format moves to a project-based layout when OneDrive storage lands in Phase 4/5.
 
 ---
 
@@ -125,23 +140,40 @@ In a later phase this will be abstracted behind an S3-compatible interface using
 | Variable | Location | Purpose |
 |---|---|---|
 | `DATABASE_URL` | `server/.env` | SQLite file path |
-| `FRONTEND_URL` | `server/.env` | Allowed CORS origin (currently unused in code — CORS allows all localhost) |
+| `FRONTEND_URL` | `server/.env` | Base URL used in email links (CORS currently allows all localhost) |
 | `JWT_ACCESS_SECRET` | `server/.env` | Signs access tokens |
 | `JWT_REFRESH_SECRET` | `server/.env` | Signs refresh tokens |
 | `JWT_ACCESS_TOKEN_EXPIRATION` | `server/.env` | Access token TTL (e.g. `15m`) |
 | `JWT_REFRESH_TOKEN_EXPIRATION` | `server/.env` | Refresh token TTL (e.g. `7d`) |
+| `SMTP_HOST` | `server/.env` | SMTP server. If host/user/pass are blank, emails are logged to the console |
+| `SMTP_PORT` | `server/.env` | SMTP port (`465` implies SSL, otherwise STARTTLS) |
+| `SMTP_USER` | `server/.env` | SMTP username |
+| `SMTP_PASS` | `server/.env` | SMTP password |
+| `SMTP_FROM` | `server/.env` | From address on outgoing mail |
 | `VITE_API_URL` | `client/.env.local` | Backend base URL |
 
 ---
 
-## Roles
+## Accounts and Roles
 
 | Role | Capabilities |
 |---|---|
-| `USER` | Login, upload to assigned projects, browse, search, download, export |
-| `ADMIN` | Everything a USER can do, plus delete documents and upload to any project |
+| `USER` | Login, upload to assigned projects, browse/search/download/export within assigned projects, edit own name and password |
+| `ADMIN` | Everything a USER can do, across all projects, plus manage projects, memberships and users, approve registrations, and delete documents |
 
 Users are assigned to projects via `ProjectMembership`. Admins bypass membership checks.
+
+Account lifecycle:
+
+1. A user self-registers → account is created as `PENDING` with an unverified email
+2. A verification email goes to the user, and a notification goes to every admin
+3. The user clicks the verification link → `emailVerifiedAt` is set
+4. An admin approves in `/admin/pending` → `accountStatus` becomes `ACTIVE`
+5. Login is only permitted once **both** steps are complete
+
+Admin-created users (`POST /users`) are `ACTIVE` immediately and are forced to change their temporary password on first login.
+
+Password policy: at least 10 characters with an uppercase letter, a lowercase letter, a digit and a special character.
 
 ---
 
@@ -149,22 +181,44 @@ Users are assigned to projects via `ProjectMembership`. Admins bypass membership
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `POST /auth/register` | Public | Creates user account |
-| `POST /auth/login` | Public | Returns access token, sets refresh cookie |
+| `POST /auth/register` | Public | Creates a PENDING account, sends verification + admin notification emails |
+| `GET /auth/verify-email?token=` | Public | Consumes the email verification token |
+| `POST /auth/login` | Public | Returns access token, sets refresh cookie; rejects unverified or unapproved accounts |
 | `POST /auth/refresh` | Cookie | Rotates refresh token |
 | `POST /auth/logout` | JWT | Revokes refresh tokens, clears cookie |
 | `GET /auth/me` | JWT | Returns current user |
-| `PATCH /auth/me` | JWT | Updates profile fields (fullName, language, timezone) |
+| `PATCH /auth/me` | JWT | Updates own profile (fullName, language, timezone) |
+| `PATCH /auth/me/password` | JWT | Changes own password, revokes all sessions |
 | `GET /projects` | JWT | Lists projects (supports `?scope=uploadable`) |
-| `POST /documents/upload` | JWT | Uploads PDF, extracts text, links to project |
-| `GET /documents` | JWT | Lists documents with filters and sorting |
-| `GET /documents/search` | JWT | Full-text search with snippets (`?q=query`) |
+| `POST /projects` | JWT + ADMIN | Creates a project |
+| `GET /projects/:id` | JWT + ADMIN | Project details with members |
+| `PATCH /projects/:id` | JWT + ADMIN | Renames a project |
+| `DELETE /projects/:id` | JWT + ADMIN | Deletes a project and its documents |
+| `GET /projects/:id/members` | JWT + ADMIN | Lists members |
+| `POST /projects/:id/members` | JWT + ADMIN | Adds a member |
+| `DELETE /projects/:id/members/:userId` | JWT + ADMIN | Removes a member |
+| `POST /documents/upload` | JWT | Uploads PDF/JPEG/PNG (max 50MB), extracts PDF text, links to project |
+| `GET /documents` | JWT | Lists documents with filters and sorting (max 50) |
+| `GET /documents/status-counts` | JWT | Document counts grouped by status |
+| `GET /documents/search` | JWT | Full-text search with snippets (`?q=query`, max 20) |
 | `GET /documents/:id` | JWT | Document metadata and text preview |
 | `GET /documents/:id/text` | JWT | Full extracted text |
-| `GET /documents/:id/download` | JWT | Downloads original PDF |
+| `GET /documents/:id/download` | JWT | Downloads the original file |
 | `DELETE /documents/:id` | JWT + ADMIN | Deletes document and file |
 | `POST /documents/bulk-delete` | JWT + ADMIN | Bulk delete |
 | `POST /exports` | JWT | Exports selected documents as ZIP |
+| `GET /users` | JWT + ADMIN | Lists all users |
+| `GET /users/search?q=` | JWT + ADMIN | Searches users by name or email |
+| `GET /users/pending` | JWT + ADMIN | Registrations awaiting approval |
+| `GET /users/rejected` | JWT + ADMIN | Rejected registrations |
+| `GET /users/:id` | JWT | Own profile, or any profile for admins |
+| `POST /users` | JWT + ADMIN | Creates an active user with a temporary password |
+| `PATCH /users/:id` | JWT + ADMIN | Edits name, email or temporary password |
+| `PATCH /users/:id/status` | JWT + ADMIN | Approves or rejects a registration |
+| `POST /users/:id/role` | JWT + ADMIN | Sets user role |
+| `DELETE /users/:id` | JWT + ADMIN | Deletes a user |
+
+All document reads and exports are project-scoped: non-admins only ever see documents from projects they are a member of.
 
 ---
 
@@ -172,11 +226,11 @@ Users are assigned to projects via `ProjectMembership`. Admins bypass membership
 
 See `docs/project-plan.md` for full detail.
 
-**Phase 1 – Core Operational MVP** — mostly complete. Two items outstanding:
-- Image upload support (currently PDF-only)
-- Project creation and user management endpoints (currently read-only via API)
+**Phase 1 – Core Operational MVP** — complete.
 
-**Phase 2 onwards** — not started.
+**Phase 2 – Access, Admin Console & Auditability** — in progress. Admin console, project-scoped visibility and the registration/approval lifecycle are done. Delete logging, soft delete and the 30-day recycle bin are not started, and the 50MB upload limit is still in place.
+
+**Phases 3–7** — not started. The `/admin/filters`, `/admin/archive` and `/jobs` pages are static mock previews of Phases 3, 4 and 6 respectively — they render hard-coded data and call no API.
 
 ---
 
@@ -185,6 +239,6 @@ See `docs/project-plan.md` for full detail.
 - Microservices
 - Distributed tracing
 - Email ingestion
-- OCR for scanned images
+- OCR for scanned images (planned for Phase 3)
 - Offline sync
 - Native Windows / Android apps (to be evaluated after workflows are stable)

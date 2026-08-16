@@ -51,21 +51,25 @@ On any failure: `status` set to `FAILED`, `errorMessage` stored.
 
 ---
 
-## Registration Flow (Phase 2)
+## Registration Flow (Phase 2) — implemented
 
-1. User submits name, email, password
-2. Password checked against policy
+1. User submits email and password (the form also collects a name, but it is not yet sent to the API)
+2. Password checked against policy (10+ chars, upper, lower, digit, special)
 3. User created with `accountStatus: PENDING`
 4. Verification email sent to user
-5. Approval email sent to admin
-6. User clicks verification link → `emailVerifiedAt` set
-7. Admin clicks approval link → `accountStatus: ACTIVE`
+5. Notification email sent to every admin
+6. User clicks verification link → `emailVerifiedAt` set, token cleared (single use)
+7. Admin approves in `/admin/pending` → `accountStatus: ACTIVE`
 8. User can log in once both have happened
 9. Login is rejected with a clear message if either step is incomplete
 
+If SMTP is not configured, emails are written to the server log instead of being sent, so the flow remains testable in development.
+
 ---
 
-## Search and Filter Flow (Phase 3)
+## Search and Filter Flow (Phase 3) — NOT YET IMPLEMENTED
+
+Target behaviour:
 
 1. User selects filters (custom fields) and types a search query
 2. Filters and query apply together
@@ -75,6 +79,8 @@ On any failure: `status` set to `FAILED`, `errorMessage` stored.
 6. Up to 20 results returned with snippets
 
 Both filter-only and search-only requests still work.
+
+Current behaviour: `GET /documents/search` loads every project-scoped document that has extracted text, filters case-insensitively in memory on filename and text, and returns up to 20 `<mark>`-highlighted snippets. `GET /documents` supports a separate set of ad-hoc text filters (`supplier`, `materialType`, `quantity`, `orderNumber`) that are all matched against filename and extracted text because no dedicated columns exist yet. The two paths are not yet combined.
 
 ---
 
@@ -88,7 +94,9 @@ Both filter-only and search-only requests still work.
 
 ---
 
-## Delete Flow (Phase 2)
+## Delete Flow (Phase 2) — NOT YET IMPLEMENTED
+
+Target behaviour:
 
 1. User selects document(s)
 2. API verifies: admin, or user has membership of the document's project
@@ -97,6 +105,13 @@ Both filter-only and search-only requests still work.
 5. File moved to `deleted/{projectId}/` in storage
 6. After 30 days, scheduled task permanently deletes the file and updates the log
 7. Admin can restore from recycle bin within the 30-day window
+
+Current behaviour:
+
+1. Admin selects document(s) — non-admins are rejected outright
+2. Blob is deleted from storage
+3. Document row is deleted, cascading to `DocumentText`
+4. Nothing is logged and nothing can be restored
 
 ---
 
@@ -140,17 +155,19 @@ Both filter-only and search-only requests still work.
 ## Project Management Flow
 
 1. Admin creates a project via the project management page (name only)
-2. Admin adds users via the membership page
+2. Admin adds users via the membership modal
 3. Assigned users see the project and can upload to it
-4. Admin can rename or delete (delete goes to recycle bin)
-5. Admin can archive when work is complete
+4. Admin can rename or delete (delete is currently permanent and cascades to documents — the recycle bin is Phase 2 outstanding work)
+5. Admin can archive when work is complete — Phase 4, UI stub only
+
+Note: a newly created project has no members. Even the creating admin must add members explicitly before non-admins can use it.
 
 ---
 
 ## User Management Flow
 
-1. Pending registrations appear in admin queue
+1. Pending registrations appear in the admin queue at `/admin/pending`
 2. Admin reviews and approves or rejects
 3. Admin can change user role at any time
-4. Admin can edit user details
-5. Users can change their own name, email, and password
+4. Admin can edit user details (name, email, temporary password)
+5. Users can change their own name and password — **self-service email change is not implemented yet**

@@ -10,7 +10,9 @@ Non-admin users see only documents from projects they are assigned to. Admins se
 
 Rationale: stakeholder requirement. Initially the system was company-wide visible, but feedback indicated users should not see documents from projects they have no involvement in. Admins retain full visibility for oversight and management.
 
-Note: this reverses the earlier "Shared Company Document Model" decision. To be confirmed with stakeholder before Phase 2 implementation begins.
+Note: this reverses the earlier "Shared Company Document Model" decision.
+
+Status: **implemented** in `DocumentsService` and `ExportsService` via `getAccessibleProjectIds()`, which returns `null` for admins (no restriction) and the user's membership project IDs otherwise. Out-of-scope documents return 404 rather than 403 so that scope is not leaked. Still pending explicit stakeholder sign-off.
 
 ---
 
@@ -39,6 +41,32 @@ Users self-register, but accounts are `PENDING` until admin approves. Email veri
 
 Rationale: an internal company tool can't accept open sign-ups. Admin approval prevents unauthorised access. Email verification prevents typos and confirms the user controls the address.
 
+Status: **implemented**. Approval happens in the `/admin/pending` console queue rather than through a link in the admin email — a link would need a signed, single-use, admin-authenticated token, and the console already provides the review context. The admin email is therefore a notification, not an action.
+
+---
+
+## Email Verification Stored on User, Not a Separate Table
+
+The SHA-256 hash of the emailed token lives in `User.emailVerificationToken`, cleared on use, with `User.emailVerifiedAt` recording the outcome.
+
+Rationale: a single-purpose, single-use token did not justify a separate table. This should be revisited if token expiry, resend, or password-reset tokens are added — at that point the originally planned `EmailVerification` table becomes the better shape.
+
+---
+
+## Argon2 for Refresh Token Hashes
+
+Refresh tokens are hashed with Argon2 before storage; verification tokens use SHA-256.
+
+Rationale: refresh tokens are long-lived credentials and deserve a slow hash. Verification tokens are 32 bytes of cryptographic randomness with no entropy to brute-force, so a fast digest is sufficient and keeps the lookup a simple indexed match.
+
+---
+
+## Temporary Passwords Are Exempt From the Password Policy
+
+`POST /users` and the password field of `PATCH /users/:id` do not enforce the strong-password rules — only a minimum length.
+
+Rationale: these are single-use credentials handed to a user out of band, and `mustChangePassword` forces a policy-compliant password on first login. Requiring an admin to invent a complex throwaway password adds friction with no security benefit.
+
 ---
 
 ## Admin-Controlled Destructive Actions
@@ -54,6 +82,8 @@ Rationale: these actions affect other users' work. Centralising them under admin
 Deleted documents are not removed immediately. They are marked deleted, logged, and moved to a `deleted/` storage location. After 30 days they are permanently removed.
 
 Rationale: deletion mistakes happen. A 30-day window lets admins restore accidentally deleted files without needing backups. Logging provides audit history.
+
+Status: **not implemented**. Deletion is currently immediate, permanent and admin-only. This is the last outstanding workstream in Phase 2.
 
 ---
 
@@ -147,7 +177,7 @@ Tags were removed during the Phase 0.5 refactor. Projects and custom filters cov
 
 `UsersService` has two creation methods intentionally:
 
-- `create(email, passwordHash)` — used by auth during self-registration. Auth service handles hashing before calling this.
-- `createUser(dto)` — used by the admin endpoint. Accepts a plain password and hashes it internally.
+- `create(email, passwordHash, emailVerificationToken)` — used by auth during self-registration. Auth service hashes the password and generates the verification token before calling this. Resulting account is `PENDING`.
+- `createUser(dto)` — used by the admin endpoint. Accepts a plain password and hashes it internally. Resulting account is `ACTIVE` with `mustChangePassword: true`.
 
 They serve different callers with different contracts. Kept separate for clarity.

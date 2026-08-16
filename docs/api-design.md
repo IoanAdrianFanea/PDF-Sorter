@@ -10,12 +10,23 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | Public | Create account, returns access token, sets refresh cookie |
-| POST | `/auth/login` | Public | Login, returns access token, sets refresh cookie |
+| POST | `/auth/register` | Public | Create a `PENDING` account. Returns a message only — **no tokens**. Sends verification email to the user and a notification to every admin |
+| GET | `/auth/verify-email?token=` | Public | Consume the email verification token, set `emailVerifiedAt` |
+| POST | `/auth/login` | Public | Login, returns access token + `mustChangePassword`, sets refresh cookie. 403 if email unverified or account not `ACTIVE` |
 | POST | `/auth/refresh` | Cookie | Rotate refresh token, returns new access token |
 | POST | `/auth/logout` | JWT | Revoke refresh tokens, clear cookie |
 | GET | `/auth/me` | JWT | Current user (no passwordHash) |
-| PATCH | `/auth/me` | JWT | Update `fullName`, `language`, `timezone` |
+| PATCH | `/auth/me` | JWT | Update `fullName`, `language`, `timezone` (email change not supported yet) |
+| PATCH | `/auth/me/password` | JWT | Change own password. Requires `currentPassword`; revokes all refresh tokens |
+
+### Password Policy
+
+Applies to `POST /auth/register` and `PATCH /auth/me/password`:
+
+- Minimum 10 characters
+- At least one uppercase letter, one lowercase letter, one digit, one special character
+
+Admin-set temporary passwords (`POST /users`, `PATCH /users/:id`) are exempt — the user is forced to change them on next login.
 
 ---
 
@@ -87,14 +98,17 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/documents/upload` | JWT | Upload file (PDF, JPEG, PNG — max 50MB). Body: `multipart/form-data` with `file` + `projectId` |
-| GET | `/documents` | JWT | List documents with optional filters (see below) |
-| GET | `/documents/search` | JWT | Full-text search. `?q=query` |
+| POST | `/documents/upload` | JWT | Upload file (PDF, JPEG, PNG — max 50MB). Body: `multipart/form-data` with `file` + `projectId`. Users must be a member of the project; admins may upload anywhere |
+| GET | `/documents` | JWT | List documents with optional filters (see below). Capped at 50 results, no pagination |
+| GET | `/documents/status-counts` | JWT | Counts grouped by status, honouring the same filters (except `status`) |
+| GET | `/documents/search` | JWT | Full-text search. `?q=query` (min 2 chars, max 20 results) |
 | GET | `/documents/:id` | JWT | Document metadata + 150-char text preview |
 | GET | `/documents/:id/text` | JWT | Full extracted text (PDFs only — images have no extracted text until OCR is added) |
 | GET | `/documents/:id/download` | JWT | Download original file |
-| DELETE | `/documents/:id` | JWT + ADMIN | Delete document and file |
-| POST | `/documents/bulk-delete` | JWT + ADMIN | Body: `{ documentIds: string[] }` |
+| DELETE | `/documents/:id` | JWT + ADMIN | Hard delete of document row and file. Becomes a soft delete in Phase 2 |
+| POST | `/documents/bulk-delete` | JWT + ADMIN | Body: `{ documentIds: string[] }`. Returns `{ deleted, failed }` |
+
+All read endpoints are project-scoped: non-admins only see documents from projects they are a member of. Out-of-scope documents return 404, not 403.
 
 ### List Documents — Query Params
 
@@ -116,7 +130,7 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/exports` | JWT | Export selected docs as ZIP. Body: `{ documentIds: string[] }` |
+| POST | `/exports` | JWT | Export selected docs as ZIP. Body: `{ documentIds: string[] }`. 404 if any requested document is outside the caller's project scope |
 
 ---
 
@@ -125,18 +139,38 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/users` | JWT + ADMIN | List all users |
+| GET | `/users/search?q=` | JWT + ADMIN | Search by name or email (max 50) |
+| GET | `/users/pending` | JWT + ADMIN | Registrations awaiting approval |
+| GET | `/users/rejected` | JWT + ADMIN | Rejected registrations |
 | GET | `/users/:id` | JWT | Fetch single user. Admins can fetch anyone; users can only fetch their own (403 otherwise) |
-| POST | `/users` | JWT + ADMIN | Create user with temporary password |
+| POST | `/users` | JWT + ADMIN | Create user with temporary password. Account is `ACTIVE` immediately with `mustChangePassword: true` |
+| PATCH | `/users/:id` | JWT + ADMIN | Edit `fullName`, `email`, and/or set a new temporary password |
+| PATCH | `/users/:id/status` | JWT + ADMIN | Approve or reject a registration |
 | POST | `/users/:id/role` | JWT + ADMIN | Set user role |
+| DELETE | `/users/:id` | JWT + ADMIN | Delete user (204). Cascades to memberships, refresh tokens and uploaded documents |
 
 ### POST /users — Body
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `email` | string | ✅ | User email address |
-| `password` | string | ✅ | Temporary password, user should change on first login |
+| `password` | string | ✅ | Temporary password, user must change on first login |
 | `fullName` | string | ✅ | Display name |
 | `role` | `USER` \| `ADMIN` | ✅ | Assigned role |
+
+### PATCH /users/:id — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `fullName` | string | — | New display name |
+| `email` | string | — | New email (409 if already in use) |
+| `password` | string | — | New temporary password, min 8 chars, sets `mustChangePassword` |
+
+### PATCH /users/:id/status — Body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `status` | `PENDING` \| `ACTIVE` \| `REJECTED` | ✅ | New account status |
 
 ### POST /users/:id/role — Body
 
@@ -154,10 +188,14 @@ All endpoints return the same user shape (no passwordHash):
 | `email` | string |
 | `fullName` | string |
 | `role` | `USER` \| `ADMIN` |
+| `accountStatus` | `PENDING` \| `ACTIVE` \| `REJECTED` |
 | `createdAt` | ISO date string |
 
 ---
 
-## Jobs (Phase 3)
+## Not Yet Implemented
 
-- `GET /jobs/:id` — job status (not implemented)
+- `GET /jobs/:id` — job status (Phase 6)
+- Recycle bin / restore endpoints (Phase 2, outstanding)
+- Filter definition CRUD (Phase 3)
+- Archive / unarchive endpoints (Phase 4)

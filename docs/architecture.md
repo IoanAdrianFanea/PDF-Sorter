@@ -12,15 +12,16 @@ Client (React + Vite)
         ▼
 NestJS API  (port 3000)
         │
-        ├── Auth module
-        ├── Projects module
-        ├── Documents module
-        ├── Exports module
-        ├── Users module
-        ├── Filters module (Phase 3)
-        ├── Archive module (Phase 4)
-        ├── Audit module (Phase 2)
-        └── Email module (Phase 2)
+        ├── Auth module          ✅ built
+        ├── Projects module      ✅ built
+        ├── Documents module     ✅ built
+        ├── Exports module       ✅ built
+        ├── Users module         ✅ built
+        ├── Storage module       ✅ built
+        ├── Email module         ✅ built (Phase 2)
+        ├── Audit module         ⬜ planned (Phase 2 — delete logging)
+        ├── Filters module       ⬜ planned (Phase 3)
+        └── Archive module       ⬜ planned (Phase 4)
         │
         ▼
 Prisma ORM
@@ -49,59 +50,64 @@ Rules:
 - Non-admin users can only see documents from projects they are members of
 - Admins see and manage everything
 - `uploadedById` stored on every document for traceability
-- All deletions logged with actor, project, and timestamp
+- All deletions logged with actor, project, and timestamp — ⬜ **not yet implemented**
 
 ---
 
 ## Entities
 
-### User
+Legend: ✅ present in `schema.prisma` today · ⬜ planned
+
+### User ✅
 - `id`, `email`, `passwordHash`, `role` (USER | ADMIN)
-- `fullName`
-- `accountStatus` (PENDING | ACTIVE | REJECTED — Phase 2)
-- `emailVerifiedAt` (Phase 2)
+- `fullName`, `language`, `timezone` (last two unused — see backlog)
+- `accountStatus` (PENDING | ACTIVE | REJECTED)
+- `mustChangePassword`
+- `emailVerifiedAt`, `emailVerificationToken` (SHA-256 hash of the emailed token)
 - `createdAt`, `updatedAt`
 
-### Project
+### Project ✅
 - `id`, `name` (unique)
-- `archivedAt` (nullable — set on archive, cleared on unarchive — Phase 4)
 - `createdAt`, `updatedAt`
+- ⬜ `archivedAt` (nullable — set on archive, cleared on unarchive — Phase 4)
 
-### ProjectMembership
+### ProjectMembership ✅
 - Composite key: `userId + projectId`
 - Determines visibility and upload permission for non-admin users
 
-### Document
+### Document ✅
 - `id`, `projectId`, `uploadedById`
 - `originalFilename`, `mimeType`, `sizeBytes`, `storageKey`
-- `status` (UPLOADED | QUEUED | PROCESSING | PROCESSED | FAILED)
+- `status` (UPLOADED | QUEUED | PROCESSING | PROCESSED | FAILED — `QUEUED` unused until Phase 6)
 - `errorMessage`, `uploadedAt`
-- `deletedAt` (nullable — soft delete, Phase 2)
+- ⬜ `deletedAt` (nullable — soft delete, Phase 2 outstanding)
 
-### DocumentText
+### DocumentText ✅
 - One-to-one with Document
 - `extractedText`, `pageCount`, `extractedAt`
 - Created for PDFs and (from Phase 3) for images via OCR
 
-### FilterDefinition (Phase 3)
+### RefreshToken ✅
+- `tokenHash` (Argon2 hash — never stored in plaintext)
+- `expiresAt`, `revokedAt`
+
+### FilterDefinition ⬜ (Phase 3)
 - `id`, `name`, `type` (TEXT | NUMBER | DATE), `createdAt`
 - Maximum 5 active per company
 
-### DocumentFilterValue (Phase 3)
+### DocumentFilterValue ⬜ (Phase 3)
 - Composite key: `documentId + filterDefinitionId`
 - `value` (string — typed on read based on definition type)
 
-### DeletionLog (Phase 2)
+### DeletionLog ⬜ (Phase 2, outstanding)
 - `id`, `documentId`, `projectId`, `actorId`
 - `deletedAt`, `restoredAt`, `permanentlyDeletedAt`
 
-### RefreshToken
-- `tokenHash` (never stored in plaintext)
-- `expiresAt`, `revokedAt`
-
-### EmailVerification (Phase 2)
-- `id`, `userId`, `tokenHash`, `purpose` (EMAIL_VERIFY | ADMIN_APPROVAL)
-- `expiresAt`, `consumedAt`
+### EmailVerification ⬜ (superseded)
+Originally planned as a separate table. Implemented instead as two columns on `User`
+(`emailVerificationToken`, `emailVerifiedAt`). A dedicated table is only needed if
+tokens gain expiry, reissue, or a second purpose such as password reset — both of
+which are currently missing.
 
 ---
 
@@ -154,11 +160,13 @@ Current implementation: `LocalBlobStore`.
 ### Registration flow
 1. User submits registration form
 2. User created with `accountStatus: PENDING`, `emailVerifiedAt: null`
-3. Email sent to admin with approve/reject link
-4. Email sent to user with verification link
-5. User clicks link → `emailVerifiedAt` set
-6. Admin approves → `accountStatus: ACTIVE`
+3. Notification email sent to every admin, linking to `/admin/pending`
+4. Verification email sent to the user with a single-use link
+5. User clicks link → `emailVerifiedAt` set, token cleared
+6. Admin approves in the pending queue → `accountStatus: ACTIVE`
 7. User can now log in (both must complete)
+
+Note: approval is done in the admin console, not via a link in the email. Verification tokens currently have no stored expiry.
 
 ### Tokens
 - Access token: short-lived JWT (15m), returned in response body
@@ -173,17 +181,21 @@ Current implementation: `LocalBlobStore`.
 
 Enforced in the service layer, not the controller layer.
 
-### Visibility (Phase 2 onwards)
-- Document list, search, download, export: scoped to projects the user is a member of
+### Visibility ✅ implemented
+- Document list, search, details, text, status counts, download, export: scoped to projects the user is a member of
 - Admin sees everything
+- Implemented as `getAccessibleProjectIds()` in `DocumentsService` and `ExportsService`, which returns `null` for admins (no restriction)
 
 ### Mutations
-- Upload: admins anywhere; users only to assigned projects
-- Delete: admins anywhere; users only on documents in their assigned projects
-- Project management (create, update, delete, archive): admin only
-- User management (list, edit, approve, change role): admin only
-- Filter management (create, edit, delete): admin only
-- Restore from recycle bin: admin only
+- Upload: admins anywhere; users only to assigned projects — ✅ implemented
+- Delete: admins anywhere; users only on documents in their assigned projects — ⬜ **currently admin-only**
+- Project management (create, update, delete): admin only — ✅ implemented
+- Project archive: admin only — ⬜ Phase 4
+- User management (list, edit, approve, change role): admin only — ✅ implemented
+- Filter management (create, edit, delete): admin only — ⬜ Phase 3
+- Restore from recycle bin: admin only — ⬜ Phase 2 outstanding
+
+Admin checks are currently repeated inline in each controller/service rather than via a shared `RolesGuard`. Worth consolidating.
 
 ---
 

@@ -6,22 +6,51 @@ Potential additions and improvements for future consideration.
 
 ## To Confirm With Stakeholder
 
-- Project-scoped visibility (non-admins see only assigned projects) — confirm before Phase 2
+- Project-scoped visibility (non-admins see only assigned projects) — **implemented in code**, still needs explicit sign-off
 - Custom filters: available to all users vs creator-only — confirm before Phase 3
 - Compression threshold (suggested 5MB) — needs concrete number
-- Password policy specifics (length, character mix, etc.)
+- ~~Password policy specifics~~ — **decided and implemented**: min 10 chars, one uppercase, one lowercase, one digit, one special character
+- Upload size limit: Phase 2 calls for removing the 50MB cap entirely — confirm there should be no ceiling at all before removing it
 
 ---
 
-## Language and Timezone Fields
+## Resolved
 
-Remove `language` and `timezone` fields from the `User` schema. Stakeholder confirmed single language is needed — these fields are currently always null and serve no purpose.
+### Force Password Reset on First Login — done
+`mustChangePassword` exists on `User`, is set by `POST /users` and by an admin-set password via `PATCH /users/:id`, is returned from `POST /auth/login`, and the client routes to `/change-password`. Cleared on successful password change.
+
+### Language and Timezone Fields — still open
+Remove `language` and `timezone` from the `User` schema. Stakeholder confirmed a single language is needed — these fields remain writable via `PATCH /auth/me` but are never read anywhere.
 
 ---
 
-## Force Password Reset on First Login
+## Email Verification Token Expiry
 
-Add a `mustChangePassword` boolean field to `User`. When an admin creates a user via `POST /users`, set it to `true`. On first login, the frontend detects the flag and forces the user to the change password screen. Less relevant once self-registration is the default path, but useful for admin-created accounts.
+The verification email states the link is valid for 24 hours, but no expiry is stored or checked — `emailVerificationToken` is a bare hash column on `User`. Either add an `emailVerificationExpiresAt` column, or promote this to the originally planned `EmailVerification` table if password-reset tokens are also needed.
+
+---
+
+## Full Name on Self-Registration
+
+The Register page renders a full-name input, but `handleSubmit` only sends email and password and `UsersService.create` hard-codes `fullName: ''`. Either send it through `RegisterDto` or remove the field from the form.
+
+---
+
+## Consolidate Admin Role Checks
+
+Every admin-only handler repeats an inline `req.user?.role !== 'ADMIN'` check, and `UsersController` throws `BadRequestException` in some places and `ForbiddenException` in others for the same condition. A shared `@Roles('ADMIN')` decorator plus `RolesGuard` would remove the duplication and make the responses consistent.
+
+---
+
+## Search Scalability
+
+`searchDocuments` loads every accessible document with extracted text into memory before filtering in JavaScript. `listDocuments` is capped at 50 rows with no pagination. Both need a SQL-side rewrite (SQLite FTS5, or Postgres full-text if the database moves) before real data volumes.
+
+---
+
+## Refresh Token Lookup
+
+`AuthService.refresh` finds the most recent non-revoked token for the user and verifies the presented token against it, rather than looking up the presented token directly. Signing in on a second device therefore invalidates the first device's refresh token. Store a lookup-friendly hash and match on it.
 
 ---
 
@@ -33,13 +62,19 @@ Add a print button in the document actions section, with a preview. Low priority
 
 ## GET /projects/:id
 
-A single project detail endpoint was omitted since `GET /projects/:id/members` covers the membership use case and `GET /projects` covers listing. Add if the admin console needs to fetch a single project with members in one call.
+Implemented in `ProjectsService.getProject`. Kept in the backlog only as a note that the admin console currently uses `GET /projects` plus `GET /projects/:id/members` instead.
+
+---
+
+## Project Creator Auto-Membership
+
+`POST /projects` creates a project with zero members. Consider auto-adding the creating admin, or making it explicit in the UI that members must be added before the project is usable.
 
 ---
 
 ## Restrict Self-Registration
 
-`POST /auth/register` is currently public. Once admin approval is implemented in Phase 2, self-registration becomes safer. Optionally disable it entirely for closed-deployment customers.
+`POST /auth/register` is public, but accounts now land in `PENDING` and require both email verification and admin approval, so the exposure is limited. Optionally disable the endpoint entirely for closed-deployment customers.
 
 ---
 
