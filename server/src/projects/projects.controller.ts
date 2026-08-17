@@ -64,7 +64,8 @@ export class ProjectsController {
     if (userRole !== 'ADMIN') {
       throw new BadRequestException('Only admins can access this resource');
     }
-    return this.projectsService.deleteProject(id);
+    const userId = req.user?.id || req.user?.sub;
+    return this.projectsService.deleteProject(id, userId);
   }
 
   @Get(':id/members')

@@ -45,8 +45,8 @@ export class DocumentsService {
         throw new BadRequestException('projectId is required');
       }
 
-      const project = await this.prisma.project.findUnique({
-        where: { id: projectId },
+      const project = await this.prisma.project.findFirst({
+        where: { id: projectId, deletedAt: null },
         select: { id: true },
       });
 

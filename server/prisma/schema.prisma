@@ -30,6 +30,7 @@ model User {
   projectMemberships ProjectMembership[]
   refreshTokens RefreshToken[]
   deletionLogs  DeletionLog[]  @relation("DeletedBy")
+  deletedProjects Project[]    @relation("ProjectDeletedBy")
   accountStatus  AccountStatus  @default(PENDING)
 }
 
@@ -39,8 +40,17 @@ model Project {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
+  // Soft delete — set when an admin deletes the project so it (and its documents)
+  // land in the recycle bin instead of being destroyed immediately.
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?             @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedByEmail String?
+
   memberships ProjectMembership[]
   documents   Document[]
+
+  @@index([deletedAt])
 }
 
 model ProjectMembership {

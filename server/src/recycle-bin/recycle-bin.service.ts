@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BLOB_STORE, type BlobStore } from '../storage/blob-store.interface';
 import {
@@ -30,6 +31,17 @@ export interface DeletedDocumentSummary {
   retentionDays: number;
 }
 
+export interface DeletedProjectSummary {
+  id: string;
+  name: string;
+  deletedAt: Date;
+  deletedByEmail: string | null;
+  deletedByName: string | null;
+  documentCount: number;
+  daysRemaining: number;
+  retentionDays: number;
+}
+
 @Injectable()
 export class RecycleBinService {
   private readonly logger = new Logger(RecycleBinService.name);
@@ -40,15 +52,91 @@ export class RecycleBinService {
   ) {}
 
   /**
-   * List every soft-deleted document with its deletion context — admin only.
+   * List soft-deleted documents whose project is still active — admin only.
+   * Documents belonging to a deleted project are reached instead by drilling into that
+   * project via `listDeletedProjectDocuments`.
    */
   async listDeletedDocuments(
     userId: string,
   ): Promise<DeletedDocumentSummary[]> {
     await this.assertAdmin(userId);
 
-    const documents = await this.prisma.document.findMany({
+    return this.getDeletedDocumentSummaries({
+      deletedAt: { not: null },
+      project: { deletedAt: null },
+    });
+  }
+
+  /**
+   * List every soft-deleted document within a specific deleted project — admin only.
+   */
+  async listDeletedProjectDocuments(
+    userId: string,
+    projectId: string,
+  ): Promise<DeletedDocumentSummary[]> {
+    await this.assertAdmin(userId);
+
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: { not: null } },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Deleted project not found');
+    }
+
+    return this.getDeletedDocumentSummaries({
+      projectId,
+      deletedAt: { not: null },
+    });
+  }
+
+  /**
+   * List every soft-deleted project with its deletion context — admin only.
+   */
+  async listDeletedProjects(userId: string): Promise<DeletedProjectSummary[]> {
+    await this.assertAdmin(userId);
+
+    const projects = await this.prisma.project.findMany({
       where: { deletedAt: { not: null } },
+      orderBy: { deletedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        deletedAt: true,
+        deletedByEmail: true,
+        deletedBy: { select: { fullName: true } },
+        _count: { select: { documents: true } },
+      },
+    });
+
+    const now = new Date();
+
+    return projects.map((project) => {
+      const deletedAt = project.deletedAt as Date;
+
+      return {
+        id: project.id,
+        name: project.name,
+        deletedAt,
+        deletedByEmail: project.deletedByEmail,
+        deletedByName: project.deletedBy?.fullName ?? null,
+        documentCount: project._count.documents,
+        daysRemaining: getDaysRemaining(deletedAt, now),
+        retentionDays: DELETION_RETENTION_DAYS,
+      };
+    });
+  }
+
+  /**
+   * Shared document -> summary mapping used by both the flat recycle bin list and the
+   * per-project drill-down, differing only in the `where` clause used to select documents.
+   */
+  private async getDeletedDocumentSummaries(
+    where: Prisma.DocumentWhereInput,
+  ): Promise<DeletedDocumentSummary[]> {
+    const documents = await this.prisma.document.findMany({
+      where,
       orderBy: { deletedAt: 'desc' },
       select: {
         id: true,
@@ -112,22 +200,151 @@ export class RecycleBinService {
   /**
    * Restore a soft-deleted document: clear `deletedAt`, close the log row and move
    * the file back out of the deleted area — admin only.
+   *
+   * If the document's project has itself been deleted, `targetProjectId` must be supplied
+   * so the admin explicitly picks which active project the document is restored into,
+   * rather than silently resurrecting it into a project that no longer exists.
    */
   async restoreDocument(
     documentId: string,
     userId: string,
+    targetProjectId?: string,
   ): Promise<{ id: string }> {
     await this.assertAdmin(userId);
 
     const document = await this.prisma.document.findFirst({
       where: { id: documentId, deletedAt: { not: null } },
-      select: { id: true, storageKey: true },
+      select: {
+        id: true,
+        storageKey: true,
+        projectId: true,
+        project: { select: { deletedAt: true } },
+      },
     });
 
     if (!document) {
       throw new NotFoundException('Deleted document not found');
     }
 
+    const destinationProjectId = await this.resolveRestoreDestinationProject(
+      document.projectId,
+      document.project.deletedAt,
+      targetProjectId,
+    );
+
+    await this.restoreDocumentRow(
+      document.id,
+      document.storageKey,
+      destinationProjectId,
+    );
+
+    return { id: documentId };
+  }
+
+  /**
+   * Restore a soft-deleted project: clear its `deletedAt` and restore every document that
+   * was swept up by that same project deletion (matched by the shared `deletedAt` timestamp
+   * `ProjectsService.deleteProject` gives both the project and its documents). Documents
+   * trashed individually before the project was deleted keep a different `deletedAt` and are
+   * left deleted, restorable on their own — admin only.
+   */
+  async restoreProject(
+    projectId: string,
+    userId: string,
+  ): Promise<{ id: string; restoredDocuments: number }> {
+    await this.assertAdmin(userId);
+
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: { not: null } },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Deleted project not found');
+    }
+
+    const cascadeDeletedAt = project.deletedAt as Date;
+
+    // Claim the project row first so a concurrent purge cannot remove it (and its files)
+    // out from under the restore.
+    const claimed = await this.prisma.project.updateMany({
+      where: { id: projectId, deletedAt: cascadeDeletedAt },
+      data: { deletedAt: null, deletedById: null, deletedByEmail: null },
+    });
+
+    if (claimed.count === 0) {
+      throw new NotFoundException('Deleted project not found');
+    }
+
+    const sweptDocuments = await this.prisma.document.findMany({
+      where: { projectId, deletedAt: cascadeDeletedAt },
+      select: { id: true, storageKey: true },
+    });
+
+    let restoredDocuments = 0;
+    for (const document of sweptDocuments) {
+      try {
+        await this.restoreDocumentRow(
+          document.id,
+          document.storageKey,
+          projectId,
+        );
+        restoredDocuments += 1;
+      } catch (error) {
+        this.logger.warn(
+          `Could not restore document ${document.id} while restoring project ${projectId}: ${String(error)}`,
+        );
+      }
+    }
+
+    return { id: projectId, restoredDocuments };
+  }
+
+  /**
+   * Figure out which active project a restored document should land in: the caller's
+   * explicit choice if given (validated as an active project), otherwise the document's
+   * original project — unless that project is itself deleted, in which case the admin must
+   * choose one.
+   */
+  private async resolveRestoreDestinationProject(
+    originalProjectId: string,
+    originalProjectDeletedAt: Date | null,
+    targetProjectId?: string,
+  ): Promise<string> {
+    if (targetProjectId) {
+      const targetProject = await this.prisma.project.findFirst({
+        where: { id: targetProjectId, deletedAt: null },
+        select: { id: true },
+      });
+
+      if (!targetProject) {
+        throw new BadRequestException(
+          'Selected project was not found or is no longer available',
+        );
+      }
+
+      return targetProjectId;
+    }
+
+    if (originalProjectDeletedAt) {
+      throw new BadRequestException(
+        'The original project has been deleted. Choose a project to restore this document into.',
+      );
+    }
+
+    return originalProjectId;
+  }
+
+  /**
+   * Shared restore mechanics for a single document row: claim it, move its file back out of
+   * the deleted holding area, and close its open `DeletionLog` row. Used both for restoring a
+   * single document and for restoring every document swept up by a project restore.
+   */
+  private async restoreDocumentRow(
+    documentId: string,
+    currentStorageKey: string,
+    destinationProjectId: string,
+  ): Promise<void> {
     const log = await this.prisma.deletionLog.findFirst({
       where: {
         documentId,
@@ -139,7 +356,7 @@ export class RecycleBinService {
     });
 
     const restoredStorageKey = toActiveStorageKey(
-      log?.storageKey || document.storageKey,
+      log?.storageKey || currentStorageKey,
     );
     const restoredAt = new Date();
 
@@ -147,16 +364,20 @@ export class RecycleBinService {
     // out from under the restore. Nothing is moved unless this update wins.
     const claimed = await this.prisma.document.updateMany({
       where: { id: documentId, deletedAt: { not: null } },
-      data: { deletedAt: null, storageKey: restoredStorageKey },
+      data: {
+        deletedAt: null,
+        storageKey: restoredStorageKey,
+        projectId: destinationProjectId,
+      },
     });
 
     if (claimed.count === 0) {
       throw new NotFoundException('Deleted document not found');
     }
 
-    if (document.storageKey && restoredStorageKey !== document.storageKey) {
+    if (currentStorageKey && restoredStorageKey !== currentStorageKey) {
       try {
-        await this.blobStore.moveFile(document.storageKey, restoredStorageKey);
+        await this.blobStore.moveFile(currentStorageKey, restoredStorageKey);
       } catch (error) {
         this.logger.warn(
           `Could not move file for document ${documentId} back from the deleted area: ${String(error)}`,
@@ -168,8 +389,6 @@ export class RecycleBinService {
       where: { documentId, restoredAt: null, permanentlyDeletedAt: null },
       data: { restoredAt },
     });
-
-    return { id: documentId };
   }
 
   /**
@@ -193,6 +412,29 @@ export class RecycleBinService {
     await this.purgeDocument(document.id, document.storageKey);
 
     return { id: documentId };
+  }
+
+  /**
+   * Permanently delete a soft-deleted project ahead of the retention window — admin only.
+   */
+  async permanentlyDeleteProject(
+    projectId: string,
+    userId: string,
+  ): Promise<{ id: string }> {
+    await this.assertAdmin(userId);
+
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: { not: null } },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Deleted project not found');
+    }
+
+    await this.purgeProject(projectId);
+
+    return { id: projectId };
   }
 
   /**
@@ -226,6 +468,40 @@ export class RecycleBinService {
         // One bad document must not stop the rest of the sweep.
         this.logger.error(
           `Failed to permanently delete document ${document.id}: ${String(error)}`,
+        );
+      }
+    }
+
+    return { purged };
+  }
+
+  /**
+   * Permanently delete every project whose retention window has expired, along with
+   * whatever documents remain in it. Safe to run repeatedly and concurrently: each project
+   * is claimed with a conditional delete, and a missing file is never fatal.
+   */
+  async purgeExpiredProjects(
+    now: Date = new Date(),
+  ): Promise<{ purged: number }> {
+    const cutoff = getPurgeCutoff(now);
+
+    const expired = await this.prisma.project.findMany({
+      where: { deletedAt: { not: null, lt: cutoff } },
+      select: { id: true },
+    });
+
+    let purged = 0;
+
+    for (const project of expired) {
+      try {
+        const removed = await this.purgeProject(project.id, cutoff);
+        if (removed) {
+          purged += 1;
+        }
+      } catch (error) {
+        // One bad project must not stop the rest of the sweep.
+        this.logger.error(
+          `Failed to permanently delete project ${project.id}: ${String(error)}`,
         );
       }
     }
@@ -275,6 +551,69 @@ export class RecycleBinService {
       where: { documentId, restoredAt: null, permanentlyDeletedAt: null },
       data: { permanentlyDeletedAt: new Date() },
     });
+
+    return true;
+  }
+
+  /**
+   * Delete a project row (claimed with a conditional delete, same as `purgeDocument`) and
+   * clean up whatever it leaves behind. Every remaining document in the project is, by
+   * construction, already soft-deleted (`ProjectsService.deleteProject` sweeps all active
+   * documents before a project can be recycled), so its file lives in the `deleted/` holding
+   * area. Documents and memberships are removed from the database automatically by the
+   * cascading foreign keys on `Document.project` and `ProjectMembership.project`; this only
+   * has to clean up the files on disk and close the affected `DeletionLog` rows. Returns
+   * false if another run got there first.
+   */
+  private async purgeProject(
+    projectId: string,
+    cutoff?: Date,
+  ): Promise<boolean> {
+    // Snapshot the documents before the cascade delete removes their rows.
+    const documents = await this.prisma.document.findMany({
+      where: { projectId, deletedAt: { not: null } },
+      select: { id: true, storageKey: true },
+    });
+
+    const claimed = await this.prisma.project.deleteMany({
+      where: {
+        id: projectId,
+        deletedAt: cutoff ? { not: null, lt: cutoff } : { not: null },
+      },
+    });
+
+    if (claimed.count === 0) {
+      return false;
+    }
+
+    for (const document of documents) {
+      const deletedStorageKey = document.storageKey
+        ? toDeletedStorageKey(document.storageKey)
+        : '';
+
+      if (!deletedStorageKey) {
+        continue;
+      }
+
+      try {
+        await this.blobStore.deleteFile(deletedStorageKey);
+      } catch (error) {
+        this.logger.warn(
+          `Could not delete file for document ${document.id}: ${String(error)}`,
+        );
+      }
+    }
+
+    if (documents.length > 0) {
+      await this.prisma.deletionLog.updateMany({
+        where: {
+          documentId: { in: documents.map((document) => document.id) },
+          restoredAt: null,
+          permanentlyDeletedAt: null,
+        },
+        data: { permanentlyDeletedAt: new Date() },
+      });
+    }
 
     return true;
   }

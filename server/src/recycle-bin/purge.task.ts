@@ -24,6 +24,16 @@ export class PurgeTask {
 
     this.isRunning = true;
     try {
+      // Projects first: purging an expired project also removes whatever documents are
+      // still in it, so there is nothing left for the document sweep to double-purge.
+      const { purged: purgedProjects } =
+        await this.recycleBinService.purgeExpiredProjects();
+      if (purgedProjects > 0) {
+        this.logger.log(
+          `Permanently deleted ${purgedProjects} project(s) older than ${DELETION_RETENTION_DAYS} days`,
+        );
+      }
+
       const { purged } = await this.recycleBinService.purgeExpiredDocuments();
       if (purged > 0) {
         this.logger.log(
