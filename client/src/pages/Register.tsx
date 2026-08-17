@@ -32,9 +32,10 @@ export default function Register() {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
+    const fullName = ((formData.get('fullname') as string) ?? '').trim();
 
     try {
-      await authService.register(email, password);
+      await authService.register(email, password, fullName);
       setIsPending(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

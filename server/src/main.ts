@@ -36,7 +36,7 @@ async function bootstrap() {
         /^http:\/\/.+\.local:\d+$/,
       ];
 
-      const isAllowed = allowedOrigins.some(pattern => pattern.test(origin));
+      const isAllowed = allowedOrigins.some((pattern) => pattern.test(origin));
 
       if (isAllowed) {
         callback(null, true);
@@ -66,14 +66,13 @@ async function bootstrap() {
 
     // Only serve index.html for non-API routes
     app.use((req: any, res: any, next: any) => {
-        if (req.path.startsWith('/api')) {
-            return next();
-        }
-        res.sendFile(join(clientDist, 'index.html'));
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(join(clientDist, 'index.html'));
     });
-}
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
-

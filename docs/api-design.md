@@ -10,13 +10,13 @@ Swagger/OpenAPI is the source of truth for exact schemas — this document is a 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | Public | Create a `PENDING` account. Returns a message only — **no tokens**. Sends verification email to the user and a notification to every admin |
+| POST | `/auth/register` | Public | Create a `PENDING` account. Body: `email`, `password`, optional `fullName`. Returns a message only — **no tokens**. Sends verification email to the user and a notification to every admin |
 | GET | `/auth/verify-email?token=` | Public | Consume the email verification token, set `emailVerifiedAt` |
 | POST | `/auth/login` | Public | Login, returns access token + `mustChangePassword`, sets refresh cookie. 403 if email unverified or account not `ACTIVE` |
 | POST | `/auth/refresh` | Cookie | Rotate refresh token, returns new access token |
 | POST | `/auth/logout` | JWT | Revoke refresh tokens, clear cookie |
 | GET | `/auth/me` | JWT | Current user (no passwordHash) |
-| PATCH | `/auth/me` | JWT | Update `fullName`, `language`, `timezone` (email change not supported yet) |
+| PATCH | `/auth/me` | JWT | Update `fullName`, `email`, `language`, `timezone`. Changing `email` returns 409 if it is already in use, otherwise clears `emailVerifiedAt` and sends a fresh verification link — the user must verify before signing in again |
 | PATCH | `/auth/me/password` | JWT | Change own password. Requires `currentPassword`; revokes all refresh tokens |
 
 ### Password Policy
@@ -34,7 +34,7 @@ Admin-set temporary passwords (`POST /users`, `PATCH /users/:id`) are exempt —
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/projects` | JWT | List projects. `?scope=uploadable` returns only projects the user can upload to |
+| GET | `/projects` | JWT | List projects visible to the caller. Non-admins only see projects they are a member of; admins see all. `?scope=uploadable` is accepted and resolves identically |
 | POST | `/projects` | JWT + ADMIN | Create project |
 | GET | `/projects/:id` | JWT + ADMIN | Get project details + members |
 | PATCH | `/projects/:id` | JWT + ADMIN | Update project name |
@@ -98,17 +98,17 @@ Admin-set temporary passwords (`POST /users`, `PATCH /users/:id`) are exempt —
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/documents/upload` | JWT | Upload file (PDF, JPEG, PNG — max 50MB). Body: `multipart/form-data` with `file` + `projectId`. Users must be a member of the project; admins may upload anywhere |
+| POST | `/documents/upload` | JWT | Upload file (PDF, JPEG, PNG — no size limit). Body: `multipart/form-data` with `file` + `projectId`. Users must be a member of the project; admins may upload anywhere |
 | GET | `/documents` | JWT | List documents with optional filters (see below). Capped at 50 results, no pagination |
 | GET | `/documents/status-counts` | JWT | Counts grouped by status, honouring the same filters (except `status`) |
 | GET | `/documents/search` | JWT | Full-text search. `?q=query` (min 2 chars, max 20 results) |
 | GET | `/documents/:id` | JWT | Document metadata + 150-char text preview |
 | GET | `/documents/:id/text` | JWT | Full extracted text (PDFs only — images have no extracted text until OCR is added) |
 | GET | `/documents/:id/download` | JWT | Download original file |
-| DELETE | `/documents/:id` | JWT + ADMIN | Hard delete of document row and file. Becomes a soft delete in Phase 2 |
-| POST | `/documents/bulk-delete` | JWT + ADMIN | Body: `{ documentIds: string[] }`. Returns `{ deleted, failed }` |
+| DELETE | `/documents/:id` | JWT | Soft delete: sets `deletedAt`, writes a `DeletionLog` row and moves the file to the `deleted/` area. Admins may delete anywhere; users only in projects they are a member of. Out-of-scope or already-deleted documents return 404 |
+| POST | `/documents/bulk-delete` | JWT | Body: `{ documentIds: string[] }`. Same rules as above per document. Returns `{ deleted, failed }` |
 
-All read endpoints are project-scoped: non-admins only see documents from projects they are a member of. Out-of-scope documents return 404, not 403.
+All read endpoints are project-scoped: non-admins only see documents from projects they are a member of. Out-of-scope documents return 404, not 403. Soft-deleted documents are excluded from every read path (list, search, details, text, status counts, download and export) — only the recycle bin can see them.
 
 ### List Documents — Query Params
 
@@ -131,6 +131,42 @@ All read endpoints are project-scoped: non-admins only see documents from projec
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/exports` | JWT | Export selected docs as ZIP. Body: `{ documentIds: string[] }`. 404 if any requested document is outside the caller's project scope |
+
+---
+
+## Recycle Bin
+
+Soft-deleted documents inside the 30-day retention window. Admin only — non-admins get 403.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/recycle-bin` | JWT + ADMIN | List soft-deleted documents with who deleted them, when, which project and days remaining |
+| POST | `/recycle-bin/:id/restore` | JWT + ADMIN | Restore: clears `deletedAt`, stamps `restoredAt` on the log and moves the file back. Returns `{ id }` |
+| DELETE | `/recycle-bin/:id` | JWT + ADMIN | Permanently delete before the window expires: unlinks the file, deletes the `Document` row, stamps `permanentlyDeletedAt`. The log row is kept. Returns `{ id }` |
+
+Documents that are not soft-deleted return 404.
+
+### Deleted Document Response Object (`GET /recycle-bin`)
+
+```json
+[
+    {
+        "id": "...",
+        "originalFilename": "...",
+        "mimeType": "application/pdf",
+        "sizeBytes": 123456,
+        "projectId": "...",
+        "projectName": "...",
+        "deletedAt": "...",
+        "deletedByEmail": "...",
+        "deletedByName": "...",
+        "daysRemaining": 27,
+        "retentionDays": 30
+    }
+]
+```
+
+Documents left in the recycle bin longer than `retentionDays` (30) are permanently deleted by a scheduled task that runs daily at 03:00. The `DeletionLog` row always survives, so the audit trail stays complete.
 
 ---
 
@@ -196,6 +232,5 @@ All endpoints return the same user shape (no passwordHash):
 ## Not Yet Implemented
 
 - `GET /jobs/:id` — job status (Phase 6)
-- Recycle bin / restore endpoints (Phase 2, outstanding)
 - Filter definition CRUD (Phase 3)
 - Archive / unarchive endpoints (Phase 4)

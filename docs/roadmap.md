@@ -22,7 +22,7 @@ Status: **complete**
 - Document list with filtering and sorting
 - Document details and text preview
 - Download original file
-- Admin-only delete (single + bulk)
+- Admin-only delete (single + bulk) — widened to project members in Phase 2
 - ZIP export
 - Storage abstraction (BlobStore interface)
 
@@ -30,27 +30,29 @@ Status: **complete**
 
 ## Phase 2 – Access, Admin Console & Auditability
 
-Status: **in progress** (~75%)
+Status: **complete**
 
 Done:
 - Admin console: project management page (create, rename, delete, list)
 - Admin console: project membership page (add/remove users)
 - Admin console: user management page (list, create, edit, change role, delete)
 - Admin console: pending registrations queue (approve / reject)
+- Admin console: recycle bin page (restore, permanent delete)
 - Project-scoped visibility (users see only assigned projects, admins see all) — list, search, details, text, download, export
-- Self-registration with admin approval
+- `GET /projects` scoped by membership for non-admins
+- Self-registration with admin approval (name now captured and stored)
 - Email verification on signup (with SMTP transport, console fallback in dev)
 - Password policy (10+ chars, upper, lower, digit, special)
-- User self-service profile editing — name and password
+- User self-service profile editing — name, email (with re-verification) and password
+- Upload size limit removed
+- Delete logging with full audit trail (`DeletionLog`, kept after permanent deletion)
+- Soft delete with a 30-day restore window, files moved to a `deleted/` storage area
+- Non-admin delete within assigned projects (admins anywhere)
+- Scheduled 30-day purge task
 
-Outstanding:
-- Remove upload size limit (still 50MB)
-- Scope `GET /projects` by membership (currently returns all projects to every user)
-- Self-service email change (field currently disabled)
-- Delete logging with full audit trail
-- 30-day soft delete and recycle bin
-- Recycle bin / restore UI
-- Non-admin delete within assigned projects
+Deferred to a later phase:
+- Expiry on email verification tokens (tokens are single-use but never expire)
+- Project delete is still permanent and cascades to its documents (only per-document deletion is recoverable)
 
 ---
 

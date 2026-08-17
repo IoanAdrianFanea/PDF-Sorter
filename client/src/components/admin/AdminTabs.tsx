@@ -4,6 +4,7 @@ const adminTabs = [
   { label: 'Projects', to: '/admin/projects' },
   { label: 'Users', to: '/admin/users' },
   { label: 'Pending Approvals', to: '/admin/pending' },
+  { label: 'Recycle Bin', to: '/admin/recycle-bin' },
   { label: 'Archive', to: '/admin/archive' },
   { label: 'Filter Settings', to: '/admin/filters' },
 ];

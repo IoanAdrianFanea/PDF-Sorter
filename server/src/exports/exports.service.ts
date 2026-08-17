@@ -42,12 +42,18 @@ export class ExportsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
 
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
-        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+        deletedAt: null,
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
       },
     });
 
@@ -69,7 +75,10 @@ export class ExportsService {
   /**
    * Create a ZIP file containing multiple documents
    */
-  async exportDocuments(documentIds: string[], userId: string): Promise<{ stream: Readable; filename: string }> {
+  async exportDocuments(
+    documentIds: string[],
+    userId: string,
+  ): Promise<{ stream: Readable; filename: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
@@ -79,12 +88,18 @@ export class ExportsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
 
     const documents = await this.prisma.document.findMany({
       where: {
         id: { in: documentIds },
-        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+        deletedAt: null,
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
       },
     });
 
@@ -105,7 +120,10 @@ export class ExportsService {
         const pdfBuffer = await fs.readFile(filePath);
         archive.append(pdfBuffer, { name: document.originalFilename });
       } catch (error) {
-        console.error(`Failed to add document ${document.id} to archive:`, error);
+        console.error(
+          `Failed to add document ${document.id} to archive:`,
+          error,
+        );
         // Continue with other documents
       }
     }

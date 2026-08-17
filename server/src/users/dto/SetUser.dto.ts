@@ -2,6 +2,6 @@ import { UserRole } from '@prisma/client';
 import { IsEnum } from 'class-validator';
 
 export class SetUserDto {
-    @IsEnum(UserRole)
-    role: UserRole;
+  @IsEnum(UserRole)
+  role: UserRole;
 }

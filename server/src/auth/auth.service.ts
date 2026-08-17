@@ -60,10 +60,18 @@ export class AuthService {
 
     // Generate email verification token
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     // Create user (accountStatus defaults to PENDING via schema)
-    await this.usersService.create(dto.email, passwordHash, tokenHash);
+    await this.usersService.create(
+      dto.email,
+      passwordHash,
+      tokenHash,
+      dto.fullName,
+    );
 
     // Send verification email to the user (fire-and-forget — never fails the request)
     void this.emailService.sendVerificationEmail(dto.email, rawToken);
@@ -78,7 +86,10 @@ export class AuthService {
       admins.map((a) => a.email),
     );
 
-    return { message: 'Registration submitted. Please check your email to verify your address. An admin will then review your request.' };
+    return {
+      message:
+        'Registration submitted. Please check your email to verify your address. An admin will then review your request.',
+    };
   }
 
   // Authenticate existing user
@@ -90,22 +101,31 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
+    const isPasswordValid = await argon2.verify(
+      user.passwordHash,
+      dto.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Check email verification — must verify before login is allowed
     if (!user.emailVerifiedAt) {
-      throw new ForbiddenException('Please verify your email address before signing in. Check your inbox for the verification link.');
+      throw new ForbiddenException(
+        'Please verify your email address before signing in. Check your inbox for the verification link.',
+      );
     }
 
     // Check account status — block access before issuing tokens
     if (user.accountStatus === 'PENDING') {
-      throw new ForbiddenException('Your account is pending admin approval. You will be notified once access is granted.');
+      throw new ForbiddenException(
+        'Your account is pending admin approval. You will be notified once access is granted.',
+      );
     }
     if (user.accountStatus === 'REJECTED') {
-      throw new ForbiddenException('Your access request has been rejected. Please contact an administrator.');
+      throw new ForbiddenException(
+        'Your access request has been rejected. Please contact an administrator.',
+      );
     }
 
     // Generate tokens
@@ -150,7 +170,10 @@ export class AuthService {
     }
 
     // Verify token hash matches
-    const isTokenValid = await argon2.verify(storedToken.tokenHash, refreshToken);
+    const isTokenValid = await argon2.verify(
+      storedToken.tokenHash,
+      refreshToken,
+    );
     if (!isTokenValid) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -206,7 +229,8 @@ export class AuthService {
       { sub: payload.sub, email: payload.email },
       {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get<string>('JWT_ACCESS_TOKEN_EXPIRATION') || '15m',
+        expiresIn:
+          this.config.get<string>('JWT_ACCESS_TOKEN_EXPIRATION') || '15m',
       } as any,
     );
 
@@ -215,7 +239,8 @@ export class AuthService {
       { sub: payload.sub, email: payload.email },
       {
         secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') || '7d',
+        expiresIn:
+          this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') || '7d',
       } as any,
     );
 
@@ -223,7 +248,8 @@ export class AuthService {
     const tokenHash = await argon2.hash(refreshToken);
 
     // Calculate expiration date
-    const expirationString = this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') || '7d';
+    const expirationString =
+      this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') || '7d';
     const expiresAt = this.calculateExpirationDate(expirationString);
 
     // Store hashed refresh token in database
@@ -235,7 +261,11 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken, mustChangePassword: user.mustChangePassword };
+    return {
+      accessToken,
+      refreshToken,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   // Convert expiration string (e.g., '7d', '15m') to Date object
@@ -261,7 +291,10 @@ export class AuthService {
 
   // Verify email address using the raw token from the email link
   async verifyEmail(rawToken: string): Promise<{ message: string }> {
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     const user = await this.prisma.user.findFirst({
       where: { emailVerificationToken: tokenHash },
@@ -279,7 +312,10 @@ export class AuthService {
       },
     });
 
-    return { message: 'Email verified successfully. You can now sign in once your account is approved.' };
+    return {
+      message:
+        'Email verified successfully. You can now sign in once your account is approved.',
+    };
   }
 
   // Change own password (requires current password)
@@ -289,13 +325,18 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const isCurrentValid = await argon2.verify(user.passwordHash, dto.currentPassword);
+    const isCurrentValid = await argon2.verify(
+      user.passwordHash,
+      dto.currentPassword,
+    );
     if (!isCurrentValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException('New password must be different from the current password');
+      throw new BadRequestException(
+        'New password must be different from the current password',
+      );
     }
 
     const newHash = await argon2.hash(dto.newPassword);
@@ -311,7 +352,10 @@ export class AuthService {
     });
   }
 
-  async updateMe(userId: string, dto: ProfileDto): Promise<Omit<User, 'passwordHash'>> {
+  async updateMe(
+    userId: string,
+    dto: ProfileDto,
+  ): Promise<Omit<User, 'passwordHash'>> {
     const existingUser = await this.usersService.findById(userId);
     if (!existingUser) {
       throw new UnauthorizedException('User not found');
@@ -319,6 +363,9 @@ export class AuthService {
 
     const data: {
       fullName?: string | null;
+      email?: string;
+      emailVerifiedAt?: Date | null;
+      emailVerificationToken?: string | null;
       language?: string;
       timezone?: string;
     } = {};
@@ -326,6 +373,37 @@ export class AuthService {
     if (dto.fullName !== undefined) {
       const trimmed = dto.fullName.trim();
       data.fullName = trimmed.length > 0 ? trimmed : null;
+    }
+
+    // Changing your own email resets verification and sends a fresh link.
+    let verificationToken: string | null = null;
+    if (dto.email !== undefined) {
+      const newEmail = dto.email.trim();
+
+      if (newEmail.toLowerCase() !== existingUser.email.toLowerCase()) {
+        // SQLite LIKE is case-insensitive for ASCII, so `contains` gives a cheap
+        // candidate set; the exact comparison is done case-insensitively here.
+        const candidates = await this.prisma.user.findMany({
+          where: { email: { contains: newEmail } },
+          select: { id: true, email: true },
+        });
+        const emailOwner = candidates.find(
+          (candidate) =>
+            candidate.email.toLowerCase() === newEmail.toLowerCase(),
+        );
+
+        if (emailOwner && emailOwner.id !== userId) {
+          throw new ConflictException('Email is already in use');
+        }
+
+        verificationToken = crypto.randomBytes(32).toString('hex');
+        data.email = newEmail;
+        data.emailVerifiedAt = null;
+        data.emailVerificationToken = crypto
+          .createHash('sha256')
+          .update(verificationToken)
+          .digest('hex');
+      }
     }
 
     if (dto.language !== undefined) {
@@ -336,7 +414,7 @@ export class AuthService {
       data.timezone = dto.timezone.trim();
     }
 
-  // If PATCH body is empty, return current profile safely.
+    // If PATCH body is empty, return current profile safely.
     if (Object.keys(data).length === 0) {
       const { passwordHash, ...safeUser } = existingUser;
       return safeUser;
@@ -346,6 +424,14 @@ export class AuthService {
       where: { id: userId },
       data,
     });
+
+    if (verificationToken) {
+      // Fire-and-forget — a mail failure must not fail the profile update
+      void this.emailService.sendVerificationEmail(
+        updatedUser.email,
+        verificationToken,
+      );
+    }
 
     const { passwordHash, ...safeUser } = updatedUser;
     return safeUser;

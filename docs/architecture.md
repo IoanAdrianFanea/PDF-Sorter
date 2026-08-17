@@ -19,7 +19,7 @@ NestJS API  (port 3000)
         ├── Users module         ✅ built
         ├── Storage module       ✅ built
         ├── Email module         ✅ built (Phase 2)
-        ├── Audit module         ⬜ planned (Phase 2 — delete logging)
+        ├── Recycle Bin module   ✅ built (Phase 2 — delete logging, restore, 30-day purge)
         ├── Filters module       ⬜ planned (Phase 3)
         └── Archive module       ⬜ planned (Phase 4)
         │
@@ -40,7 +40,7 @@ Local file storage (server/data/) — replaced by OneDrive in Phase 5
 User
   └── ProjectMembership → Project → Document → DocumentText
                                   └── DocumentFilterValue → FilterDefinition (Phase 3)
-                                  └── DeletionLog (Phase 2)
+  └── DeletionLog (audit trail — soft-linked to Document by id, not a foreign key)
   └── RefreshToken
   └── EmailVerification (Phase 2)
 ```
@@ -50,7 +50,7 @@ Rules:
 - Non-admin users can only see documents from projects they are members of
 - Admins see and manage everything
 - `uploadedById` stored on every document for traceability
-- All deletions logged with actor, project, and timestamp — ⬜ **not yet implemented**
+- All deletions logged with actor, project, and timestamp — ✅ implemented (`DeletionLog`)
 
 ---
 
@@ -80,7 +80,7 @@ Legend: ✅ present in `schema.prisma` today · ⬜ planned
 - `originalFilename`, `mimeType`, `sizeBytes`, `storageKey`
 - `status` (UPLOADED | QUEUED | PROCESSING | PROCESSED | FAILED — `QUEUED` unused until Phase 6)
 - `errorMessage`, `uploadedAt`
-- ⬜ `deletedAt` (nullable — soft delete, Phase 2 outstanding)
+- `deletedAt` (nullable, indexed — soft delete; excluded from every read path)
 
 ### DocumentText ✅
 - One-to-one with Document
@@ -99,9 +99,12 @@ Legend: ✅ present in `schema.prisma` today · ⬜ planned
 - Composite key: `documentId + filterDefinitionId`
 - `value` (string — typed on read based on definition type)
 
-### DeletionLog ⬜ (Phase 2, outstanding)
-- `id`, `documentId`, `projectId`, `actorId`
+### DeletionLog ✅
+- `id`, `documentId`, `projectId`, `actorId` (nullable, `SetNull` on user delete)
 - `deletedAt`, `restoredAt`, `permanentlyDeletedAt`
+- Denormalised context so the row stays readable after the document is purged:
+  `projectName`, `originalFilename`, `storageKey` (the original active key, used to restore), `actorEmail`
+- `documentId` is deliberately **not** a foreign key — the log outlives the document
 
 ### EmailVerification ⬜ (superseded)
 Originally planned as a separate table. Implemented instead as two columns on `User`
@@ -134,12 +137,16 @@ On any failure:
 
 ## Storage
 
-Files stored via `BlobStore` interface.
+Files stored via `BlobStore` interface (`saveFile`, `getFile`, `getPath`, `moveFile`, `deleteFile`).
 
 Current implementation: `LocalBlobStore`.
 
 ### Storage key (current)
 `{userId}/{documentId}.{ext}`
+
+Soft-deleted files keep that shape behind a prefix: `deleted/{userId}/{documentId}.{ext}`.
+`moveFile` is what shifts a file between the two areas (soft delete moves it in, restore moves
+it back); only the permanent purge unlinks. The project-based key restructure is Phase 4.
 
 ### Storage key (Phase 4 — OneDrive)
 ```
@@ -152,6 +159,16 @@ Current implementation: `LocalBlobStore`.
 ### Compression (Phase 4)
 - Files above threshold (suggested 5MB+) compressed before storage
 - Skip compression if file is already compressed (PDF, JPEG)
+
+---
+
+## Scheduled Work
+
+`ScheduleModule` (`@nestjs/schedule`) is registered in `AppModule`.
+
+| Task | Schedule | Behaviour |
+|---|---|---|
+| `PurgeTask` (recycle bin) | Daily at 03:00 | Permanently deletes documents soft-deleted more than `DELETION_RETENTION_DAYS` (30) days ago: unlinks the file, deletes the `Document` row, stamps `permanentlyDeletedAt` on the `DeletionLog`. Idempotent, guarded against overlapping runs, tolerant of missing files |
 
 ---
 
@@ -182,18 +199,19 @@ Note: approval is done in the admin console, not via a link in the email. Verifi
 Enforced in the service layer, not the controller layer.
 
 ### Visibility ✅ implemented
-- Document list, search, details, text, status counts, download, export: scoped to projects the user is a member of
+- Document list, search, details, text, status counts, download, export: scoped to projects the user is a member of, and soft-deleted documents are excluded everywhere
+- Project list (`GET /projects`): scoped to projects the user is a member of
 - Admin sees everything
 - Implemented as `getAccessibleProjectIds()` in `DocumentsService` and `ExportsService`, which returns `null` for admins (no restriction)
 
 ### Mutations
 - Upload: admins anywhere; users only to assigned projects — ✅ implemented
-- Delete: admins anywhere; users only on documents in their assigned projects — ⬜ **currently admin-only**
+- Delete: admins anywhere; users only on documents in their assigned projects — ✅ implemented (soft delete + `DeletionLog`)
 - Project management (create, update, delete): admin only — ✅ implemented
 - Project archive: admin only — ⬜ Phase 4
 - User management (list, edit, approve, change role): admin only — ✅ implemented
 - Filter management (create, edit, delete): admin only — ⬜ Phase 3
-- Restore from recycle bin: admin only — ⬜ Phase 2 outstanding
+- Restore / permanent delete from recycle bin: admin only — ✅ implemented
 
 Admin checks are currently repeated inline in each controller/service rather than via a shared `RolesGuard`. Worth consolidating.
 

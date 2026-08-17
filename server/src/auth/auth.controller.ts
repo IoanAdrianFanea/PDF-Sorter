@@ -55,7 +55,8 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken, mustChangePassword } = await this.authService.login(dto);
+    const { accessToken, refreshToken, mustChangePassword } =
+      await this.authService.login(dto);
 
     // Set refresh token in HttpOnly cookie
     this.setRefreshTokenCookie(res, refreshToken);
@@ -124,7 +125,10 @@ export class AuthController {
   @Patch('me/password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async changePassword(@Req() req: RequestWithUser, @Body() dto: ChangePasswordDto) {
+  async changePassword(
+    @Req() req: RequestWithUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
     await this.authService.changePassword(req.user.id, dto);
   }
 

@@ -23,6 +23,7 @@ export interface User {
 
 export interface UpdateMePayload {
   fullName?: string;
+  email?: string;
   language?: string;
   timezone?: string;
 }
@@ -33,14 +34,14 @@ export const authService = {
    * Register a new user
    * @throws Error with message if registration fails
    */
-  async register(email: string, password: string): Promise<RegisterResponse> {
+  async register(email: string, password: string, fullName?: string): Promise<RegisterResponse> {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       credentials: 'include', // Important: allows HttpOnly cookies
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(fullName ? { fullName } : {}) }),
     });
 
     if (!response.ok) {

@@ -29,6 +29,7 @@ model User {
   uploadedDocuments Document[]        @relation("UploadedBy")
   projectMemberships ProjectMembership[]
   refreshTokens RefreshToken[]
+  deletionLogs  DeletionLog[]  @relation("DeletedBy")
   accountStatus  AccountStatus  @default(PENDING)
 }
 
@@ -81,11 +82,38 @@ model Document {
   uploadedAt       DateTime       @default(now())
   status           DocumentStatus
   errorMessage     String?
+  deletedAt        DateTime?
 
   text             DocumentText?
 
   @@index([projectId])
   @@index([uploadedById])
+  @@index([deletedAt])
+}
+
+/// Audit trail for document deletions.
+/// `documentId` is intentionally a plain string, not a foreign key: the log row must
+/// survive the permanent purge of the document it describes. Enough context is
+/// denormalised (filename, project name, actor email) that the row stays readable
+/// after the Document — or even the actor's account — is gone.
+model DeletionLog {
+  id                   String    @id @default(cuid())
+  documentId           String
+  projectId            String
+  projectName          String
+  originalFilename     String
+  storageKey           String
+  actorId              String?
+  actor                User?     @relation("DeletedBy", fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail           String
+  deletedAt            DateTime  @default(now())
+  restoredAt           DateTime?
+  permanentlyDeletedAt DateTime?
+
+  @@index([documentId])
+  @@index([projectId])
+  @@index([actorId])
+  @@index([deletedAt])
 }
 
 model DocumentText {

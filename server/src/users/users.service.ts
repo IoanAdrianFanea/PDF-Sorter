@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 import { CreateUserDto } from './dto/CreateUser.dto';
@@ -8,24 +12,23 @@ import * as argon2 from 'argon2';
 
 type AccountStatus = 'PENDING' | 'ACTIVE' | 'REJECTED';
 
-
 const userSelect = {
-      id: true,
-      email: true,
-      fullName: true,
-      role: true,
-      accountStatus: true,
-      createdAt: true,
-  };
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  accountStatus: true,
+  createdAt: true,
+};
 
 const userSelectWithStatus = {
-      id: true,
-      email: true,
-      fullName: true,
-      role: true,
-      accountStatus: true,
-      createdAt: true,
-  };
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  accountStatus: true,
+  createdAt: true,
+};
 
 // Service for user database operations
 @Injectable()
@@ -41,26 +44,31 @@ export class UsersService {
 
   // For auth internal use - returns full user including passwordHash
   async findById(id: string): Promise<User | null> {
-      return this.prisma.user.findUnique({
-          where: { id },
-      });
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
-// For controller responses - returns safe user without sensitive fields
+  // For controller responses - returns safe user without sensitive fields
   async findByIdSafe(id: string): Promise<Partial<User> | null> {
-      return this.prisma.user.findUnique({
-          where: { id },
-          select: userSelect,
-      });
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: userSelect,
+    });
   }
 
   // Create new user with hashed password - REGISTERING
-  async create(email: string, passwordHash: string, emailVerificationToken: string): Promise<User> {
+  async create(
+    email: string,
+    passwordHash: string,
+    emailVerificationToken: string,
+    fullName?: string,
+  ): Promise<User> {
     return this.prisma.user.create({
       data: {
         email,
         passwordHash,
-        fullName: '',
+        fullName: fullName?.trim() || '',
         role: 'USER',
         emailVerificationToken,
       },
@@ -71,22 +79,25 @@ export class UsersService {
   async createUser(createUserDto: CreateUserDto): Promise<Partial<User>> {
     const passwordHash = await argon2.hash(createUserDto.password);
     return this.prisma.user.create({
-        data: {
-            email: createUserDto.email,
-            passwordHash,
-            fullName: createUserDto.fullName,
-            role: createUserDto.role,
-            // Admin-created accounts are immediately active; no approval needed.
-            accountStatus: 'ACTIVE',
-            // Force the user to change this temporary password on first login.
-            mustChangePassword: true,
-        },
-        select: userSelect,
+      data: {
+        email: createUserDto.email,
+        passwordHash,
+        fullName: createUserDto.fullName,
+        role: createUserDto.role,
+        // Admin-created accounts are immediately active; no approval needed.
+        accountStatus: 'ACTIVE',
+        // Force the user to change this temporary password on first login.
+        mustChangePassword: true,
+      },
+      select: userSelect,
     });
   }
 
   // Edit a user's profile (admin) — name, email, or set a new temporary password
-  async adminEditUser(id: string, dto: AdminEditUserDto): Promise<Partial<User>> {
+  async adminEditUser(
+    id: string,
+    dto: AdminEditUserDto,
+  ): Promise<Partial<User>> {
     const data: Record<string, unknown> = {};
 
     if (dto.fullName !== undefined) {
@@ -96,7 +107,9 @@ export class UsersService {
     if (dto.email !== undefined) {
       const trimmed = dto.email.trim().toLowerCase();
       // Ensure email uniqueness
-      const existing = await this.prisma.user.findUnique({ where: { email: trimmed } });
+      const existing = await this.prisma.user.findUnique({
+        where: { email: trimmed },
+      });
       if (existing && existing.id !== id) {
         throw new ConflictException('Email is already in use');
       }
@@ -110,7 +123,10 @@ export class UsersService {
     }
 
     if (Object.keys(data).length === 0) {
-      const user = await this.prisma.user.findUnique({ where: { id }, select: userSelect });
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        select: userSelect,
+      });
       if (!user) throw new NotFoundException('User not found');
       return user;
     }
@@ -123,9 +139,9 @@ export class UsersService {
   }
 
   // Find all users
-  async findAll(): Promise<Partial<User>[]>{
+  async findAll(): Promise<Partial<User>[]> {
     return this.prisma.user.findMany({
-        select: userSelect,
+      select: userSelect,
     });
   }
 
@@ -147,11 +163,14 @@ export class UsersService {
   }
 
   // Update user role
-  async setUserRole(id: string, setUserDto: SetUserDto): Promise<Partial<User>> {
+  async setUserRole(
+    id: string,
+    setUserDto: SetUserDto,
+  ): Promise<Partial<User>> {
     return this.prisma.user.update({
-        where: { id },
-        data: { role: setUserDto.role },
-        select: userSelect,
+      where: { id },
+      data: { role: setUserDto.role },
+      select: userSelect,
     });
   }
 
@@ -170,12 +189,14 @@ export class UsersService {
   }
 
   // Update a user's account status - ADMIN ONLY
-  async updateAccountStatus(id: string, status: AccountStatus): Promise<Partial<User>> {
+  async updateAccountStatus(
+    id: string,
+    status: AccountStatus,
+  ): Promise<Partial<User>> {
     return this.prisma.user.update({
       where: { id },
       data: { accountStatus: status },
       select: userSelectWithStatus,
     });
   }
-
 }

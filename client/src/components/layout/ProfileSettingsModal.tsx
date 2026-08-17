@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../../api/auth';
+import { authService, type UpdateMePayload } from '../../api/auth';
 
 const PASSWORD_RULES = [
   { label: 'At least 10 characters', test: (p: string) => p.length >= 10 },
@@ -19,12 +19,14 @@ type SettingsTab = 'profile' | 'security';
 
 interface ProfileFormState {
   fullName: string;
+  email: string;
   language: string;
   timezone: string;
 }
 
 const defaultProfile: ProfileFormState = {
   fullName: '',
+  email: '',
   language: 'en-US',
   timezone: 'UTC',
 };
@@ -88,6 +90,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
   const isProfileTab = activeTab === 'profile';
   const hasUnsavedChanges =
     fullName !== initialProfile.fullName ||
+    email.trim() !== initialProfile.email ||
     language !== initialProfile.language ||
     timezone !== initialProfile.timezone;
 
@@ -127,6 +130,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
 
         const normalizedProfile: ProfileFormState = {
           fullName: user.fullName ?? '',
+          email: user.email,
           language: normalizeLanguage(user.language),
           timezone: normalizeTimezone(user.timezone),
         };
@@ -168,11 +172,19 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     setProfileSuccess('');
 
     try {
-      const payload: { fullName?: string; language?: string; timezone?: string } = {};
+      const payload: UpdateMePayload = {};
       const trimmedFullName = fullName.trim();
+      const trimmedEmail = email.trim();
 
       if (trimmedFullName !== initialProfile.fullName) {
         payload.fullName = trimmedFullName;
+      }
+      if (trimmedEmail !== initialProfile.email) {
+        if (!trimmedEmail) {
+          setProfileError('Email address cannot be empty.');
+          return;
+        }
+        payload.email = trimmedEmail;
       }
       if (language !== initialProfile.language) {
         payload.language = language;
@@ -186,10 +198,12 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
         return;
       }
 
+      const emailChanged = payload.email !== undefined;
       const updatedUser = await authService.updateMe(accessToken, payload);
 
       const normalizedProfile: ProfileFormState = {
         fullName: updatedUser.fullName ?? '',
+        email: updatedUser.email,
         language: normalizeLanguage(updatedUser.language),
         timezone: normalizeTimezone(updatedUser.timezone),
       };
@@ -200,7 +214,11 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
       setRole(updatedUser.role);
       setLanguage(normalizedProfile.language);
       setTimezone(normalizedProfile.timezone);
-      setProfileSuccess('Profile saved successfully.');
+      setProfileSuccess(
+        emailChanged
+          ? 'Profile saved. Check your new inbox — you must verify the address before your next sign-in.'
+          : 'Profile saved successfully.',
+      );
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Failed to save profile');
     } finally {
@@ -337,16 +355,18 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
 
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Email Address</label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      value={email}
-                      disabled
-                      className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-4 text-sm text-slate-400 dark:text-slate-500"
-                    />
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">lock</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Managed by your organization administrator.</p>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setProfileSuccess('');
+                    }}
+                    className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-4 text-sm text-slate-900 dark:text-slate-100"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Changing your email requires verifying the new address before you can sign in again.
+                  </p>
                 </div>
 
                 <div>

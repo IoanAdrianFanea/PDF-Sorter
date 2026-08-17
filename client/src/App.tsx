@@ -15,6 +15,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminPending from './pages/admin/AdminPending';
 import AdminArchive from './pages/admin/AdminArchive';
 import AdminFilters from './pages/admin/AdminFilters';
+import AdminRecycleBin from './pages/admin/AdminRecycleBin';
 
 interface AdminGuardProps {
   children: ReactNode;
@@ -148,6 +149,7 @@ function App() {
         <Route path="/admin/projects" element={renderAdminPage(<AdminProjects />)} />
         <Route path="/admin/users" element={renderAdminPage(<AdminUsers />)} />
         <Route path="/admin/pending" element={renderAdminPage(<AdminPending />)} />
+        <Route path="/admin/recycle-bin" element={renderAdminPage(<AdminRecycleBin />)} />
         <Route path="/admin/archive" element={renderAdminPage(<AdminArchive />)} />
         <Route path="/admin/filters" element={renderAdminPage(<AdminFilters />)} />
         <Route path="/" element={<Navigate to="/login" replace />} />

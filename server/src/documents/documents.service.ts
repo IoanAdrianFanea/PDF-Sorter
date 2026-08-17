@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
   BadRequestException,
@@ -13,10 +14,16 @@ import {
   type DocumentsSortBy,
   type ListDocumentsQueryDto,
 } from './dto/list-documents-query.dto';
+import {
+  toActiveStorageKey,
+  toDeletedStorageKey,
+} from '../common/deletion.constants';
 
 // Documents business logic
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly extractionService: ExtractionService,
@@ -171,12 +178,18 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
 
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
-        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+        deletedAt: null,
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
       },
       include: {
         text: {
@@ -195,7 +208,7 @@ export class DocumentsService {
 
     // Create a preview of the extracted text (first 150 characters)
     const textPreview = document.text?.extractedText
-      ? document.text.extractedText.substring(0, 150) + 
+      ? document.text.extractedText.substring(0, 150) +
         (document.text.extractedText.length > 150 ? '...' : '')
       : null;
 
@@ -234,11 +247,20 @@ export class DocumentsService {
    */
   private buildDocumentsWhere(
     query: ListDocumentsQueryDto,
-    options: { includeStatus?: boolean; allowedProjectIds?: string[] | null } = {},
+    options: {
+      includeStatus?: boolean;
+      allowedProjectIds?: string[] | null;
+    } = {},
   ): Prisma.DocumentWhereInput {
     const whereClauses: Prisma.DocumentWhereInput[] = [];
 
-    if (options.allowedProjectIds !== undefined && options.allowedProjectIds !== null) {
+    // Soft-deleted documents are never visible through any read path.
+    whereClauses.push({ deletedAt: null });
+
+    if (
+      options.allowedProjectIds !== undefined &&
+      options.allowedProjectIds !== null
+    ) {
       whereClauses.push({ projectId: { in: options.allowedProjectIds } });
     }
 
@@ -316,7 +338,10 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
     const where = this.buildDocumentsWhere(query, { allowedProjectIds });
 
     const orderBy = this.getDocumentsOrderBy(query.sortBy);
@@ -371,8 +396,14 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
-    const where = this.buildDocumentsWhere(query, { includeStatus: false, allowedProjectIds });
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
+    const where = this.buildDocumentsWhere(query, {
+      includeStatus: false,
+      allowedProjectIds,
+    });
 
     const rows = await this.prisma.document.groupBy({
       by: ['status'],
@@ -395,7 +426,9 @@ export class DocumentsService {
     return counts;
   }
 
-  private getDocumentsOrderBy(sortBy?: DocumentsSortBy): Prisma.DocumentOrderByWithRelationInput[] {
+  private getDocumentsOrderBy(
+    sortBy?: DocumentsSortBy,
+  ): Prisma.DocumentOrderByWithRelationInput[] {
     switch (sortBy) {
       case 'upload-oldest':
         return [{ uploadedAt: 'asc' }];
@@ -424,12 +457,18 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
 
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
-        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+        deletedAt: null,
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
       },
       include: {
         text: true,
@@ -469,16 +508,22 @@ export class DocumentsService {
       throw new NotFoundException('User not found');
     }
 
-    const allowedProjectIds = await this.getAccessibleProjectIds(userId, user.role);
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
 
     const lowerQuery = query.toLowerCase();
 
     const allDocuments = await this.prisma.document.findMany({
       where: {
+        deletedAt: null,
         text: {
           isNot: null,
         },
-        ...(allowedProjectIds !== null && { projectId: { in: allowedProjectIds } }),
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
       },
       include: {
         text: {
@@ -496,7 +541,7 @@ export class DocumentsService {
         const filename = doc.originalFilename.toLowerCase();
         const text = doc.text?.extractedText || '';
         const lowerText = text.toLowerCase();
-        
+
         return filename.includes(lowerQuery) || lowerText.includes(lowerQuery);
       })
       .slice(0, 20); // Limit to 20 results
@@ -506,11 +551,11 @@ export class DocumentsService {
       const filename = doc.originalFilename.toLowerCase();
       const text = doc.text?.extractedText || '';
       const lowerText = text.toLowerCase();
-      
+
       // Check if query matches in filename
       const matchesFilename = filename.includes(lowerQuery);
       const matchesText = lowerText.includes(lowerQuery);
-      
+
       let snippet: string;
       if (matchesText) {
         // If query found in text, create text snippet
@@ -521,7 +566,7 @@ export class DocumentsService {
       } else {
         snippet = '...';
       }
-      
+
       return {
         documentId: doc.id,
         filename: doc.originalFilename,
@@ -560,7 +605,7 @@ export class DocumentsService {
     );
 
     // Extract snippet
-    let snippet = normalizedText.substring(startIndex, endIndex);
+    const snippet = normalizedText.substring(startIndex, endIndex);
 
     // Add ellipsis if clipped
     const prefixEllipsis = startIndex > 0 ? '... ' : '';
@@ -597,39 +642,88 @@ export class DocumentsService {
   }
 
   /**
-   * Delete a single document
+   * Soft delete a single document.
+   *
+   * Admins may delete in any project; regular users may delete documents in projects
+   * they are a member of. Documents outside the caller's scope report 404, consistent
+   * with how out-of-scope documents are hidden everywhere else.
+   *
+   * The row is kept with `deletedAt` set, a DeletionLog row is written, and the file is
+   * moved into the `deleted/` holding area rather than unlinked, so it can be restored.
    */
   async deleteDocument(documentId: string, userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, email: true },
     });
 
-    if (!user || user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admins can delete documents');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
+    const allowedProjectIds = await this.getAccessibleProjectIds(
+      userId,
+      user.role,
+    );
+
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        deletedAt: null,
+        ...(allowedProjectIds !== null && {
+          projectId: { in: allowedProjectIds },
+        }),
+      },
+      include: {
+        project: { select: { name: true } },
+      },
     });
 
     if (!document) {
       throw new NotFoundException('Document not found');
     }
 
-    // Delete physical file from storage
-    if (document.storageKey) {
-      await this.blobStore.deleteFile(document.storageKey);
+    const originalStorageKey = toActiveStorageKey(document.storageKey);
+    const deletedStorageKey = toDeletedStorageKey(originalStorageKey);
+
+    if (originalStorageKey) {
+      try {
+        await this.blobStore.moveFile(document.storageKey, deletedStorageKey);
+      } catch (error) {
+        // A missing blob must not block the audit trail — log and continue.
+        this.logger.warn(
+          `Could not move file for document ${documentId} to the deleted area: ${String(error)}`,
+        );
+      }
     }
 
-    // Delete from database (cascade will delete DocumentText)
-    await this.prisma.document.delete({
-      where: { id: documentId },
-    });
+    const deletedAt = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.document.update({
+        where: { id: documentId },
+        data: {
+          deletedAt,
+          ...(originalStorageKey && { storageKey: deletedStorageKey }),
+        },
+      }),
+      this.prisma.deletionLog.create({
+        data: {
+          documentId: document.id,
+          projectId: document.projectId,
+          projectName: document.project.name,
+          originalFilename: document.originalFilename,
+          storageKey: originalStorageKey,
+          actorId: userId,
+          actorEmail: user.email,
+          deletedAt,
+        },
+      }),
+    ]);
   }
 
   /**
-   * Bulk delete multiple documents
+   * Bulk soft delete multiple documents
    */
   async bulkDeleteDocuments(
     documentIds: string[],

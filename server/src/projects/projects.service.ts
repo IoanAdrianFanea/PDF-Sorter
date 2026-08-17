@@ -8,53 +8,54 @@ import { UpdateProjectDto } from './dto/UpdateProject.dto';
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * List projects visible to the caller.
+   * Admins always see every project; non-admins only see projects they are a member of,
+   * for both the default and the `uploadable` scope.
+   */
   async listProjects(
     userId: string,
     scope: 'all' | 'uploadable' = 'all',
-  ): Promise<Array<{ id: string; name: string; createdAt: Date; _count: { memberships: number } }>> {
-    if (scope === 'uploadable') {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { role: true },
-      });
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      createdAt: Date;
+      _count: { memberships: number };
+    }>
+  > {
+    // `scope` is kept for backwards compatibility: `all` and `uploadable` now resolve
+    // identically, because membership is what determines visibility either way.
+    void scope;
 
-      if (user?.role === UserRole.ADMIN) {
-        return this.prisma.project.findMany({
-          select: {
-            id: true,
-            name: true,
-            createdAt: true,
-            _count: { select: { memberships: true } },
-          },
-          orderBy: { name: 'asc' },
-        });
-      }
+    const projectSelect = {
+      id: true,
+      name: true,
+      createdAt: true,
+      _count: { select: { memberships: true } },
+    };
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (user?.role === UserRole.ADMIN) {
       return this.prisma.project.findMany({
-        where: {
-          memberships: {
-            some: {
-              userId,
-            },
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          createdAt: true,
-          _count: { select: { memberships: true } },
-        },
+        select: projectSelect,
         orderBy: { name: 'asc' },
       });
     }
 
     return this.prisma.project.findMany({
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        _count: { select: { memberships: true } },
+      where: {
+        memberships: {
+          some: {
+            userId,
+          },
+        },
       },
+      select: projectSelect,
       orderBy: { name: 'asc' },
     });
   }
@@ -75,12 +76,12 @@ export class ProjectsService {
 
   async deleteProject(id: string) {
     await this.prisma.projectMembership.deleteMany({
-        where: { projectId: id },
+      where: { projectId: id },
     });
     return this.prisma.project.delete({
-        where: { id },
+      where: { id },
     });
-  } 
+  }
 
   async updateProjectName(id: string, UpdateProjectDto: UpdateProjectDto) {
     return this.prisma.project.update({
@@ -102,7 +103,7 @@ export class ProjectsService {
           },
         },
       },
-    }); 
+    });
   }
 
   async addProjectMember(id: string, userId: string) {
@@ -125,24 +126,21 @@ export class ProjectsService {
 
   async getProject(id: string) {
     return this.prisma.project.findUnique({
-        where: { id },
-        include: {
-            memberships: {
-                select: {
-                    user: {
-                        select: {
-                            id: true,
-                            email: true,
-                            fullName: true,
-                            role: true,
-                        },
-                    },
-                },
+      where: { id },
+      include: {
+        memberships: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                role: true,
+              },
             },
+          },
         },
+      },
     });
   }
-
 }
-
-

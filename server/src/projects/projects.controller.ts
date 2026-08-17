@@ -1,8 +1,18 @@
-import { BadRequestException, Controller, Delete, Get, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/CreateProject.dto';
-import { UpdateProjectDto } from './dto/UpdateProject.dto'; 
+import { UpdateProjectDto } from './dto/UpdateProject.dto';
 import { Param, Body } from '@nestjs/common';
 
 @Controller('projects')
@@ -24,66 +34,80 @@ export class ProjectsController {
   }
 
   @Post()
-  async createProject(@Body() createProjectDto: CreateProjectDto, @Request() req) {
+  async createProject(
+    @Body() createProjectDto: CreateProjectDto,
+    @Request() req,
+  ) {
     const userRole = req.user?.role;
-        if (userRole !== 'ADMIN') {
-            throw new BadRequestException('Only admins can access this resource');
-        }
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
     return this.projectsService.createProject(createProjectDto);
   }
 
   @Patch(':id')
-  async updateProjectName(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto, @Request() req) {
+  async updateProjectName(
+    @Param('id') id: string,
+    @Body() updateProjectDto: UpdateProjectDto,
+    @Request() req,
+  ) {
     const userRole = req.user?.role;
-        if (userRole !== 'ADMIN') {
-            throw new BadRequestException('Only admins can access this resource');
-        }
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
     return this.projectsService.updateProjectName(id, updateProjectDto);
   }
 
   @Delete(':id')
   async deleteProject(@Param('id') id: string, @Request() req) {
     const userRole = req.user?.role;
-        if (userRole !== 'ADMIN') {
-            throw new BadRequestException('Only admins can access this resource');
-        }
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
     return this.projectsService.deleteProject(id);
-   }
-   
+  }
+
   @Get(':id/members')
   async getProjectMembers(@Param('id') id: string, @Request() req) {
     const userRole = req.user?.role;
-        if (userRole !== 'ADMIN') {
-            throw new BadRequestException('Only admins can access this resource');
-        }
-    return this.projectsService.getProjectMembers(id);  
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
+    return this.projectsService.getProjectMembers(id);
   }
 
   @Post(':id/members')
-  async addProjectMember(@Param('id') id: string, @Body() { userId }: { userId: string }, @Request() req) {
+  async addProjectMember(
+    @Param('id') id: string,
+    @Body() { userId }: { userId: string },
+    @Request() req,
+  ) {
     const userRole = req.user?.role;
-        if (userRole !== 'ADMIN') {
-            throw new BadRequestException('Only admins can access this resource');
-        }
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
     return this.projectsService.addProjectMember(id, userId);
   }
-  
+
   @Delete(':id/members/:userId')
-  async removeProjectMember(@Param('id') id: string, @Param('userId') userId: string, @Request() req) {
-      const userRole = req.user?.role;
-      if (userRole !== 'ADMIN') {
-          throw new BadRequestException('Only admins can access this resource');
-      }
-      return this.projectsService.removeProjectMember(id, userId);
+  async removeProjectMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Request() req,
+  ) {
+    const userRole = req.user?.role;
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
+    return this.projectsService.removeProjectMember(id, userId);
   }
 
   @Get(':id')
   async getProject(@Param('id') id: string, @Request() req) {
-      const userRole = req.user?.role;
-      if (userRole !== 'ADMIN') {
-          throw new BadRequestException('Only admins can access this resource');
-      }
-      return this.projectsService.getProject(id);
+    const userRole = req.user?.role;
+    if (userRole !== 'ADMIN') {
+      throw new BadRequestException('Only admins can access this resource');
+    }
+    return this.projectsService.getProject(id);
   }
-
 }

@@ -15,8 +15,9 @@ Built for shared company use — documents are organised by project, and access 
 - Uploaded PDFs are text-extracted on upload and made searchable immediately (images are stored without extraction until OCR lands in Phase 3)
 - Full-text search with contextual snippets runs across everything the user can see
 - Self-registration requires both email verification and admin approval
-- An admin console manages projects, memberships, users and pending registrations
-- Admins can delete documents and have unrestricted upload access
+- An admin console manages projects, memberships, users, pending registrations and the recycle bin
+- Users can delete documents in their own projects; admins can delete anywhere and have unrestricted upload access
+- Deletions are soft: every deletion is logged with actor, project and timestamp, files are recoverable for 30 days, and the log survives permanent deletion
 - Selected documents can be downloaded individually or exported as a ZIP
 
 ---
@@ -38,6 +39,7 @@ Built for shared company use — documents are organised by project, and access 
 - `archiver` for ZIP export
 - `cookie-parser` for HttpOnly refresh token cookie
 - `nodemailer` for verification and approval emails
+- `@nestjs/schedule` for the 30-day recycle bin purge
 
 ---
 
@@ -129,6 +131,14 @@ server/data/{userId}/{documentId}.{ext}
 
 The extension is derived from the mime type (`pdf`, `jpg`, `png`).
 
+Soft-deleted documents keep the same shape behind a `deleted/` prefix while they sit in the recycle bin:
+
+```
+server/data/deleted/{userId}/{documentId}.{ext}
+```
+
+Restoring moves the file back; only the 30-day purge (or an admin permanently deleting from the recycle bin) removes it from disk.
+
 This directory is gitignored. It is created automatically on first upload.
 
 Storage sits behind the `BlobStore` interface; the key format moves to a project-based layout when OneDrive storage lands in Phase 4/5.
@@ -158,8 +168,8 @@ Storage sits behind the `BlobStore` interface; the key format moves to a project
 
 | Role | Capabilities |
 |---|---|
-| `USER` | Login, upload to assigned projects, browse/search/download/export within assigned projects, edit own name and password |
-| `ADMIN` | Everything a USER can do, across all projects, plus manage projects, memberships and users, approve registrations, and delete documents |
+| `USER` | Login, upload to assigned projects, browse/search/download/export within assigned projects, delete documents in assigned projects, edit own name, email and password |
+| `ADMIN` | Everything a USER can do, across all projects, plus manage projects, memberships and users, approve registrations, and restore or permanently delete from the recycle bin |
 
 Users are assigned to projects via `ProjectMembership`. Admins bypass membership checks.
 
@@ -187,9 +197,9 @@ Password policy: at least 10 characters with an uppercase letter, a lowercase le
 | `POST /auth/refresh` | Cookie | Rotates refresh token |
 | `POST /auth/logout` | JWT | Revokes refresh tokens, clears cookie |
 | `GET /auth/me` | JWT | Returns current user |
-| `PATCH /auth/me` | JWT | Updates own profile (fullName, language, timezone) |
+| `PATCH /auth/me` | JWT | Updates own profile (fullName, email, language, timezone); an email change requires re-verification |
 | `PATCH /auth/me/password` | JWT | Changes own password, revokes all sessions |
-| `GET /projects` | JWT | Lists projects (supports `?scope=uploadable`) |
+| `GET /projects` | JWT | Lists projects the caller is a member of (admins see all) |
 | `POST /projects` | JWT + ADMIN | Creates a project |
 | `GET /projects/:id` | JWT + ADMIN | Project details with members |
 | `PATCH /projects/:id` | JWT + ADMIN | Renames a project |
@@ -197,15 +207,18 @@ Password policy: at least 10 characters with an uppercase letter, a lowercase le
 | `GET /projects/:id/members` | JWT + ADMIN | Lists members |
 | `POST /projects/:id/members` | JWT + ADMIN | Adds a member |
 | `DELETE /projects/:id/members/:userId` | JWT + ADMIN | Removes a member |
-| `POST /documents/upload` | JWT | Uploads PDF/JPEG/PNG (max 50MB), extracts PDF text, links to project |
+| `POST /documents/upload` | JWT | Uploads PDF/JPEG/PNG (no size limit), extracts PDF text, links to project |
 | `GET /documents` | JWT | Lists documents with filters and sorting (max 50) |
 | `GET /documents/status-counts` | JWT | Document counts grouped by status |
 | `GET /documents/search` | JWT | Full-text search with snippets (`?q=query`, max 20) |
 | `GET /documents/:id` | JWT | Document metadata and text preview |
 | `GET /documents/:id/text` | JWT | Full extracted text |
 | `GET /documents/:id/download` | JWT | Downloads the original file |
-| `DELETE /documents/:id` | JWT + ADMIN | Deletes document and file |
-| `POST /documents/bulk-delete` | JWT + ADMIN | Bulk delete |
+| `DELETE /documents/:id` | JWT | Soft deletes the document (admins anywhere, users within their projects) and logs it |
+| `POST /documents/bulk-delete` | JWT | Bulk soft delete, returns `{ deleted, failed }` |
+| `GET /recycle-bin` | JWT + ADMIN | Lists soft-deleted documents with actor, project and days remaining |
+| `POST /recycle-bin/:id/restore` | JWT + ADMIN | Restores a soft-deleted document |
+| `DELETE /recycle-bin/:id` | JWT + ADMIN | Permanently deletes a soft-deleted document (log row kept) |
 | `POST /exports` | JWT | Exports selected documents as ZIP |
 | `GET /users` | JWT + ADMIN | Lists all users |
 | `GET /users/search?q=` | JWT + ADMIN | Searches users by name or email |
@@ -218,7 +231,7 @@ Password policy: at least 10 characters with an uppercase letter, a lowercase le
 | `POST /users/:id/role` | JWT + ADMIN | Sets user role |
 | `DELETE /users/:id` | JWT + ADMIN | Deletes a user |
 
-All document reads and exports are project-scoped: non-admins only ever see documents from projects they are a member of.
+All document reads and exports are project-scoped: non-admins only ever see documents from projects they are a member of. Soft-deleted documents are hidden from every read path and are only visible in the recycle bin.
 
 ---
 
@@ -228,7 +241,7 @@ See `docs/project-plan.md` for full detail.
 
 **Phase 1 – Core Operational MVP** — complete.
 
-**Phase 2 – Access, Admin Console & Auditability** — in progress. Admin console, project-scoped visibility and the registration/approval lifecycle are done. Delete logging, soft delete and the 30-day recycle bin are not started, and the 50MB upload limit is still in place.
+**Phase 2 – Access, Admin Console & Auditability** — complete. Admin console, project-scoped visibility (documents and projects), the registration/approval lifecycle, self-service email change, delete logging, soft delete with the 30-day recycle bin and its scheduled purge are all in place, and the 50MB upload limit has been removed.
 
 **Phases 3–7** — not started. The `/admin/filters`, `/admin/archive` and `/jobs` pages are static mock previews of Phases 3, 4 and 6 respectively — they render hard-coded data and call no API.
 

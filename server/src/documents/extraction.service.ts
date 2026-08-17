@@ -7,7 +7,9 @@ export class ExtractionService {
   /**
    * Extract text from a PDF file
    */
-  async extractTextFromPdfPath(pdfPath: string): Promise<{ text: string; pageCount: number }> {
+  async extractTextFromPdfPath(
+    pdfPath: string,
+  ): Promise<{ text: string; pageCount: number }> {
     // Read PDF file into buffer
     const dataBuffer = await fs.readFile(pdfPath);
 

@@ -15,8 +15,10 @@ export class EmailService {
     const port = config.get<number>('SMTP_PORT') ?? 587;
     const user = config.get<string>('SMTP_USER');
     const pass = config.get<string>('SMTP_PASS');
-    this.from = config.get<string>('SMTP_FROM') ?? 'DocIndex <noreply@docindex.local>';
-    this.frontendUrl = config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
+    this.from =
+      config.get<string>('SMTP_FROM') ?? 'DocIndex <noreply@docindex.local>';
+    this.frontendUrl =
+      config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
 
     this.configured = Boolean(host && user && pass);
 
@@ -79,7 +81,9 @@ export class EmailService {
     const mail = { from: this.from, to, subject, html };
 
     if (!this.configured) {
-      this.logger.log(`[EMAIL NOT SENT — SMTP unconfigured]\nTo: ${to}\nSubject: ${subject}\n${html}`);
+      this.logger.log(
+        `[EMAIL NOT SENT — SMTP unconfigured]\nTo: ${to}\nSubject: ${subject}\n${html}`,
+      );
       return;
     }
 

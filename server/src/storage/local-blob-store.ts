@@ -61,6 +61,32 @@ export class LocalBlobStore implements BlobStore {
   }
 
   /**
+   * Move a file to a different storage key, creating the destination directory
+   */
+  async moveFile(fromKey: string, toKey: string): Promise<void> {
+    if (fromKey === toKey) {
+      return;
+    }
+
+    const fromPath = path.join(this.rootDir, fromKey);
+    const toPath = path.join(this.rootDir, toKey);
+
+    await fs.mkdir(path.dirname(toPath), { recursive: true });
+
+    try {
+      await fs.rename(fromPath, toPath);
+    } catch (error) {
+      // rename fails across devices/mounts — fall back to copy + unlink
+      if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
+        await fs.copyFile(fromPath, toPath);
+        await fs.unlink(fromPath);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Delete a file from disk
    */
   async deleteFile(storageKey: string): Promise<void> {

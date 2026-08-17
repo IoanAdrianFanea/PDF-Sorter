@@ -12,7 +12,6 @@ import {
   Request,
   Res,
   BadRequestException,
-  PayloadTooLargeException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -22,8 +21,6 @@ import { SearchQueryDto } from './dto/search-query.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { ExportsService } from '../exports/exports.service';
-
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
@@ -37,11 +34,7 @@ export class DocumentsController {
    * Upload a PDF or image file
    */
   @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 50 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
@@ -56,17 +49,7 @@ export class DocumentsController {
       throw new BadRequestException('No file uploaded');
     }
 
-    if (file.size > MAX_UPLOAD_BYTES) {
-      throw new PayloadTooLargeException(
-        `File too large. Maximum size is ${MAX_UPLOAD_BYTES / 1024 / 1024}MB`,
-      );
-    }
-
-    const allowedMimeTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-    ];
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
@@ -81,10 +64,7 @@ export class DocumentsController {
    * Search documents by text content
    */
   @Get('search')
-  async searchDocuments(
-    @Query() searchQuery: SearchQueryDto,
-    @Request() req,
-  ) {
+  async searchDocuments(@Query() searchQuery: SearchQueryDto, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
@@ -97,10 +77,7 @@ export class DocumentsController {
    * Get extracted text for a document
    */
   @Get(':id/text')
-  async getDocumentText(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
+  async getDocumentText(@Param('id') id: string, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
@@ -135,10 +112,7 @@ export class DocumentsController {
    * Get document status counts
    */
   @Get('status-counts')
-  async getStatusCounts(
-    @Request() req,
-    @Query() query: ListDocumentsQueryDto,
-  ) {
+  async getStatusCounts(@Request() req, @Query() query: ListDocumentsQueryDto) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
@@ -151,10 +125,7 @@ export class DocumentsController {
    * Get a single document by ID
    */
   @Get(':id')
-  async getDocument(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
+  async getDocument(@Param('id') id: string, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
@@ -167,10 +138,7 @@ export class DocumentsController {
    * List all documents for current user
    */
   @Get()
-  async listDocuments(
-    @Request() req,
-    @Query() query: ListDocumentsQueryDto,
-  ) {
+  async listDocuments(@Request() req, @Query() query: ListDocumentsQueryDto) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');
@@ -183,10 +151,7 @@ export class DocumentsController {
    * Delete a single document
    */
   @Delete(':id')
-  async deleteDocument(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
+  async deleteDocument(@Param('id') id: string, @Request() req) {
     const userId = req.user?.id || req.user?.sub;
     if (!userId) {
       throw new BadRequestException('User not authenticated');

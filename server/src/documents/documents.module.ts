@@ -10,10 +10,7 @@ import { ExportsModule } from '../exports/exports.module';
 @Module({
   imports: [PrismaModule, StorageModule, ExportsModule],
   controllers: [DocumentsController],
-  providers: [
-    DocumentsService,
-    ExtractionService,
-  ],
+  providers: [DocumentsService, ExtractionService],
   exports: [DocumentsService],
 })
 export class DocumentsModule {}

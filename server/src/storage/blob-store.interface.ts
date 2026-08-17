@@ -12,14 +12,19 @@ export interface BlobStore {
   ): Promise<{ storageKey: string }>;
 
   /**
-    * Get a file as a Buffer
+   * Get a file as a Buffer
    */
-    getFile(userId: string, documentId: string): Promise<Buffer>;
+  getFile(userId: string, documentId: string): Promise<Buffer>;
 
   /**
    * Get the full path to a stored file
    */
   getPath(storageKey: string): string;
+
+  /**
+   * Move a stored file to a new key (used by soft delete, restore and archiving)
+   */
+  moveFile(fromKey: string, toKey: string): Promise<void>;
 
   /**
    * Delete a file

@@ -53,9 +53,9 @@ On any failure: `status` set to `FAILED`, `errorMessage` stored.
 
 ## Registration Flow (Phase 2) — implemented
 
-1. User submits email and password (the form also collects a name, but it is not yet sent to the API)
+1. User submits their name, email and password
 2. Password checked against policy (10+ chars, upper, lower, digit, special)
-3. User created with `accountStatus: PENDING`
+3. User created with `accountStatus: PENDING` and the submitted name
 4. Verification email sent to user
 5. Notification email sent to every admin
 6. User clicks verification link → `emailVerifiedAt` set, token cleared (single use)
@@ -94,24 +94,21 @@ Current behaviour: `GET /documents/search` loads every project-scoped document t
 
 ---
 
-## Delete Flow (Phase 2) — NOT YET IMPLEMENTED
+## Delete Flow (Phase 2) — implemented
 
-Target behaviour:
+1. User selects document(s) and confirms deletion
+2. API verifies: admin (any project), or user with membership of the document's project — anything else is 404, the same as any other out-of-scope document
+3. Document marked with `deletedAt` (soft delete) and its `storageKey` re-pointed at the deleted area
+4. `DeletionLog` row written: actor id + email, project id + name, document id, original filename, timestamp
+5. File moved (not unlinked) to `deleted/{userId}/{documentId}.{ext}` in storage
+6. The document immediately disappears from list, search, details, text, status counts, download and export
+7. Admin can restore from the recycle bin (`/admin/recycle-bin`) within the 30-day window: `deletedAt` cleared, `restoredAt` stamped on the log, file moved back
+8. Admin can also delete permanently before the window expires
+9. After 30 days a scheduled task (daily, 03:00) permanently deletes the file and the `Document` row, and stamps `permanentlyDeletedAt` on the log
 
-1. User selects document(s)
-2. API verifies: admin, or user has membership of the document's project
-3. Document marked with `deletedAt` (soft delete)
-4. `DeletionLog` row written: actor, project, document, timestamp
-5. File moved to `deleted/{projectId}/` in storage
-6. After 30 days, scheduled task permanently deletes the file and updates the log
-7. Admin can restore from recycle bin within the 30-day window
+The `DeletionLog` row is never removed: `documentId` is a plain string rather than a foreign key, and the filename, project name and actor email are denormalised, so the audit trail stays readable after the document — or the actor's account — is gone. The retention window lives in one place (`DELETION_RETENTION_DAYS` in `server/src/common/deletion.constants.ts`).
 
-Current behaviour:
-
-1. Admin selects document(s) — non-admins are rejected outright
-2. Blob is deleted from storage
-3. Document row is deleted, cascading to `DocumentText`
-4. Nothing is logged and nothing can be restored
+The purge is safe to run repeatedly and concurrently: each document is claimed with a conditional delete, and a missing file is logged rather than thrown.
 
 ---
 
@@ -157,7 +154,7 @@ Current behaviour:
 1. Admin creates a project via the project management page (name only)
 2. Admin adds users via the membership modal
 3. Assigned users see the project and can upload to it
-4. Admin can rename or delete (delete is currently permanent and cascades to documents — the recycle bin is Phase 2 outstanding work)
+4. Admin can rename or delete (project delete is permanent and cascades to its documents — the recycle bin only covers individual document deletions)
 5. Admin can archive when work is complete — Phase 4, UI stub only
 
 Note: a newly created project has no members. Even the creating admin must add members explicitly before non-admins can use it.
@@ -170,4 +167,4 @@ Note: a newly created project has no members. Even the creating admin must add m
 2. Admin reviews and approves or rejects
 3. Admin can change user role at any time
 4. Admin can edit user details (name, email, temporary password)
-5. Users can change their own name and password — **self-service email change is not implemented yet**
+5. Users can change their own name, email and password. Changing an email address clears verification and sends a new verification link — the user must verify the new address before signing in again
